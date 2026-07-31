@@ -11,6 +11,7 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 /* ══ RESET ══ */
@@ -1145,6 +1146,7 @@ select:hover,select:focus{border-color:var(--orange);}
 // ── CONFIG ──────────────────────────────
 const SHEET_ID = '1SgelBlfese2hrxqjUm-ZcEAV7UQXuGmRg10B9ioB04I';
 const USERS_SHEET_ID = '1Fdp5T5WMZNv6Ggwqr4ulVuIgteu0b_Q8rf77pF4d32s';
+const GROQ_KEY = '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';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -4932,29 +4934,14 @@ document.addEventListener('DOMContentLoaded', function() {
       <button onclick="closeAIReport()" style="position:absolute;top:14px;right:16px;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--card-border);background:var(--card-bg);color:var(--text2);font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
     <div id="ai-report-body">
-      <!-- API Key input shown first time -->
-      <div id="ai-key-section">
-        <div style="margin-bottom:12px;">
-          <!-- Provider selector -->
-          <div style="display:flex;gap:8px;margin-bottom:14px;">
-            <button id="prov-gemini" onclick="setProvider('gemini')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #6366f1;background:rgba(99,102,241,.08);color:#6366f1;font-weight:700;font-size:12px;cursor:pointer;">
-              🤖 Gemini (Google)
-            </button>
-            <button id="prov-groq" onclick="setProvider('groq')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--card-border);background:var(--card-bg);color:var(--text2);font-weight:700;font-size:12px;cursor:pointer;">
-              ⚡ Groq (Recommended)
-            </button>
-          </div>
-          <!-- Key instructions change per provider -->
-          <div id="ai-provider-hint" style="font-size:11px;color:var(--text3);margin-bottom:10px;padding:8px 10px;border-radius:8px;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);">
-            🔑 Get a free Gemini key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#6366f1;font-weight:700;">aistudio.google.com</a> using a <b>personal @gmail.com</b> (not work email — workspace accounts often have restrictions). Key starts with <code>AIzaSy…</code>
-          </div>
-          <div id="ai-report-key-row">
-            <input id="ai-report-key-inp" type="password" placeholder="AIzaSy…" autocomplete="off"/>
-            <button class="ai-rpt-btn generate" id="ai-gen-btn" onclick="triggerAIReport()">Generate Report</button>
-          </div>
+      <div id="ai-report-content">
+        <div style="text-align:center;padding:56px 24px;">
+          <div style="font-size:40px;margin-bottom:16px;">📊</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:8px;">Weekly Operations Report</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:24px;">Week-on-Week + MTD vs MTD · Powered by Groq AI</div>
+          <button class="ai-rpt-btn generate" id="ai-gen-btn" onclick="triggerAIReport()" style="padding:12px 32px;font-size:13px;">⚡ Generate Report</button>
         </div>
       </div>
-      <div id="ai-report-content" style="margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -4962,31 +4949,22 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // ── AI REPORT — Week-on-Week + MTD vs MTD, 2-page layout ──────────
 
-let _aiProvider = localStorage.getItem('_aiProvider') || 'gemini';
+// ── Client priority order for report tables ────────────────────────────────────
+// These clients appear first (in this order), then rest sorted by volume
+const CLIENT_PRIORITY_ORDER = ['DAWNTECH','CGCEL','ALPHALITE(F)','ALPHALITE(L)','VELOCITY','WHATSUP'];
 
-function setProvider(p) {
-  _aiProvider = p;
-  localStorage.setItem('_aiProvider', p);
-  const gBtn = document.getElementById('prov-gemini');
-  const rBtn = document.getElementById('prov-groq');
-  const hint = document.getElementById('ai-provider-hint');
-  const inp  = document.getElementById('ai-report-key-inp');
-  if(p === 'groq') {
-    if(gBtn){ gBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:2px solid var(--card-border);background:var(--card-bg);color:var(--text2);font-weight:700;font-size:12px;cursor:pointer;'; }
-    if(rBtn){ rBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:2px solid #f97316;background:rgba(249,115,22,.08);color:#f97316;font-weight:700;font-size:12px;cursor:pointer;'; }
-    if(hint) hint.innerHTML = '🔑 Get a free Groq key at <a href="https://console.groq.com/keys" target="_blank" style="color:#f97316;font-weight:700;">console.groq.com</a> — sign up with any email, no credit card, instant access. Key starts with <code>gsk_…</code><br><b style="color:#16a34a;">✓ Recommended — no workspace restrictions, faster, generous free quota.</b>';
-    if(inp){ inp.placeholder='gsk_…'; const s=localStorage.getItem('_groqKey')||''; inp.value=s; }
-  } else {
-    if(gBtn){ gBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:2px solid #6366f1;background:rgba(99,102,241,.08);color:#6366f1;font-weight:700;font-size:12px;cursor:pointer;'; }
-    if(rBtn){ rBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:2px solid var(--card-border);background:var(--card-bg);color:var(--text2);font-weight:700;font-size:12px;cursor:pointer;'; }
-    if(hint) hint.innerHTML = '🔑 Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#6366f1;font-weight:700;">aistudio.google.com</a> — use a <b>personal @gmail.com</b>, not your work email (workspace accounts often block API access). Key starts with <code>AIzaSy…</code>';
-    if(inp){ inp.placeholder='AIzaSy…'; const s=localStorage.getItem('_geminiKey')||''; inp.value=s; }
-  }
+function prioritySort(clients) {
+  return [...clients].sort((a,b)=>{
+    const ai=CLIENT_PRIORITY_ORDER.indexOf(a.cl), bi=CLIENT_PRIORITY_ORDER.indexOf(b.cl);
+    if(ai!==-1&&bi!==-1) return ai-bi;
+    if(ai!==-1) return -1;
+    if(bi!==-1) return 1;
+    return b.gu-a.gu;
+  });
 }
 
 function openAIReport() {
   document.getElementById('ai-report-overlay').classList.add('open');
-  setTimeout(() => setProvider(_aiProvider), 0);
 }
 function closeAIReport() {
   document.getElementById('ai-report-overlay').classList.remove('open');
@@ -5104,63 +5082,40 @@ Return ONLY valid compact JSON (no markdown):
 {"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}pp","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}pp","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}pp","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}pp","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}pp","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}pp","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(m.dsPct,'%')}","prev":"${S(pm.dsPct,'%')}","delta":"${DIFF(m.dsPct,pm.dsPct,'%')}pp","dir":"${(m.dsPct||0)<=(pm.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}pp","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["specific action 1","action 2","action 3"]}`;
 }
 
-// ── AI call — routes to Gemini or Groq based on selected provider ─────────────
-async function callAI(prompt, apiKey, attempt=0) {
-  const el = document.getElementById('ai-report-content');
-  let resp;
-  if (_aiProvider === 'groq') {
-    // Groq — OpenAI-compatible API, llama-3.3-70b, genuinely free tier
-    resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body: JSON.stringify({model:'llama-3.3-70b-versatile', messages:[{role:'user',content:prompt}],
-        temperature:0.3, max_tokens:1500, response_format:{type:'json_object'}})
-    });
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||`Groq ${resp.status}`);}
-    const j=await resp.json();
-    const raw=(j.choices?.[0]?.message?.content||'').replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
-    return JSON.parse(raw);
-  } else {
-    // Gemini — with auto-retry on rate limit
-    resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1500}})}
-    );
-    if (!resp.ok) {
-      const e = await resp.json().catch(()=>({}));
-      const msg = e.error?.message || `Gemini ${resp.status}`;
-      const match = msg.match(/retry in ([\d.]+)s/i);
-      if (match && attempt < 3) {
-        const waitSec = Math.ceil(parseFloat(match[1])) + 3;
-        let remaining = waitSec;
-        const tick = () => {
-          if(!document.getElementById('ai-report-content')) return;
-          el.innerHTML=`<div style="text-align:center;padding:56px 0;">
-            <div style="font-size:48px;font-weight:900;color:#6366f1;letter-spacing:-.03em;">${remaining}s</div>
-            <div style="font-size:13px;color:var(--text2);margin-top:10px;font-weight:600;">Rate limit — auto-retrying (attempt ${attempt+1}/3)</div>
-            <div style="font-size:11px;color:#f97316;margin-top:8px;">Tip: Switch to ⚡ Groq to avoid rate limits entirely</div>
-          </div>`;
-          if(remaining>0){remaining--;setTimeout(tick,1000);}
-        };
-        tick();
-        await new Promise(r=>setTimeout(r,waitSec*1000));
-        return callAI(prompt, apiKey, attempt+1);
-      }
-      throw new Error(msg);
-    }
-    const j=await resp.json();
-    const raw=(j.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
-    return JSON.parse(raw);
+// ── AI call — Groq only, key hardcoded ───────────────────────────────────────
+async function callAI(prompt) {
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
+    body: JSON.stringify({
+      model:'llama-3.3-70b-versatile',
+      messages:[{role:'user',content:prompt}],
+      temperature:0.3, max_tokens:1500,
+      response_format:{type:'json_object'}
+    })
+  });
+  if(!resp.ok){
+    const e=await resp.json().catch(()=>({}));
+    throw new Error(e.error?.message||`Groq error ${resp.status}`);
   }
+  const j=await resp.json();
+  const raw=(j.choices?.[0]?.message?.content||'').replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
+  return JSON.parse(raw);
 }
 // ── Render 2-page report ──────────────────────────────────────────────────────
 function renderReport(rpt, d) {
   const content = document.getElementById('ai-report-content');
   document.getElementById('ai-report-actions').innerHTML =
-    `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download Report</button>`;
+    `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download PDF</button>`;
 
   const F = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n==null?'—':String(Math.round(n));
   const P = v => v==null?'—':v+'%';
+
+  // Apply priority sort to all client arrays before rendering
+  d.week.topClients  = prioritySort(d.week.topClients  || []);
+  d.pweek.topClients = prioritySort(d.pweek.topClients || []);
+  d.mtd.topClients   = prioritySort(d.mtd.topClients   || []);
+  d.pmtd.topClients  = prioritySort(d.pmtd.topClients  || []);
 
   function dirChip(dir,delta){
     const up=dir==='up', dn=dir==='down';
@@ -5211,8 +5166,9 @@ function renderReport(rpt, d) {
       <thead><tr style="border-bottom:2px solid var(--card-border);">
         <th style="text-align:left;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Rank · Client</th>
         <th style="padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Volume</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Appts</th>
         <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Good Units</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Prev</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Prev GU</th>
         <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Fulfil%</th>
         <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">SD%</th>
         <th style="text-align:right;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">D+S%</th>
@@ -5225,16 +5181,18 @@ function renderReport(rpt, d) {
         const dsColor = c.dsPct!=null&&c.dsPct>2?'#dc2626':'var(--text1)';
         const sdColor = c.sdPct!=null&&c.sdPct<70?'#dc2626':'#16a34a';
         const barW = (c.gu/maxGU*100).toFixed(1);
-        return `<tr style="border-bottom:1px solid var(--card-border);">
+        const isPriority = CLIENT_PRIORITY_ORDER.includes(c.cl);
+        return `<tr style="border-bottom:1px solid var(--card-border);${isPriority?'background:rgba(99,102,241,.02);':''}">
           <td style="padding:10px 0;">
-            <div style="font-weight:800;font-size:12px;color:var(--text1);">#${i+1} ${c.cl}</div>
+            <div style="font-weight:800;font-size:12px;color:var(--text1);">${isPriority?'⭐':' #'+i} ${c.cl}</div>
             ${note?`<div style="font-size:10px;color:#6366f1;margin-top:2px;">${note.note}</div>`:''}
           </td>
-          <td style="padding:10px 8px;min-width:80px;">
+          <td style="padding:10px 8px;min-width:70px;">
             <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden;">
               <div style="height:100%;width:${barW}%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:3px;"></div>
             </div>
           </td>
+          <td style="text-align:right;padding:10px 8px;font-weight:700;color:#6366f1;">${c.n}</td>
           <td style="text-align:right;padding:10px 8px;font-weight:700;">${F(c.gu)}${guDeltaHtml}</td>
           <td style="text-align:right;padding:10px 8px;color:var(--text3);">${pc?F(pc.gu):'—'}</td>
           <td style="text-align:right;padding:10px 8px;">${P(c.fulfPct)}</td>
@@ -5376,21 +5334,19 @@ function renderReport(rpt, d) {
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
 async function triggerAIReport() {
-  const apiKey = (document.getElementById('ai-report-key-inp')?.value||'').trim();
-  const btn    = document.getElementById('ai-gen-btn');
-  const el     = document.getElementById('ai-report-content');
-  if(!apiKey){alert('Please enter your API key.');return;}
+  const btn = document.getElementById('ai-gen-btn');
+  const el  = document.getElementById('ai-report-content');
   if(!ALL_DATA.length){alert('No data loaded yet — wait for the dashboard to finish loading.');return;}
-  localStorage.setItem(_aiProvider==='groq'?'_groqKey':'_geminiKey', apiKey);
   btn.disabled=true; btn.innerHTML='<span class="ai-spinner"></span> Generating…';
+  document.getElementById('ai-report-actions').innerHTML='';
   el.innerHTML=`<div style="text-align:center;padding:56px 0;">
     <div class="ai-spinner" style="width:36px;height:36px;margin:0 auto 16px;"></div>
-    <div style="font-size:13px;color:var(--text2);font-weight:600;">Building WoW + MTD analysis via ${_aiProvider==='groq'?'Groq ⚡':'Gemini 🤖'}…</div>
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">Building WoW + MTD analysis via Groq ⚡…</div>
     <div style="font-size:11px;margin-top:6px;color:var(--text3);">Analysing ${ALL_DATA.length.toLocaleString()} appointment records</div>
   </div>`;
   try {
     const data   = compileReportData();
-    const report = await callAI(buildPrompt(data), apiKey);
+    const report = await callAI(buildPrompt(data));
     renderReport(report, data);
     window._lastAIReport = {report, data};
   } catch(e) {
@@ -5398,25 +5354,35 @@ async function triggerAIReport() {
       <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
       <div style="font-weight:700;margin-bottom:8px;">Generation failed</div>
       <div style="font-size:12px;color:var(--text3);max-width:400px;margin:0 auto;">${e.message}</div>
-      ${_aiProvider==='gemini'?'<div style="font-size:11px;color:#f97316;margin-top:10px;font-weight:600;">Try switching to ⚡ Groq — it has no workspace restrictions and is always free.</div>':''}</div>`;
+    </div>`;
   } finally {
-    btn.disabled=false; btn.innerHTML='Generate Report';
+    btn.disabled=false; btn.innerHTML='⚡ Generate Report';
   }
 }
 
-// ── Download ──────────────────────────────────────────────────────────────────
-function downloadReport() {
-  const el=document.getElementById('ai-report-printable');
-  if(!el) return;
-  const css=`body{font-family:'Segoe UI',sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#111827;background:#f9fafb;}
-    table{width:100%;border-collapse:collapse;} th,td{padding:8px;} thead tr{border-bottom:2px solid #e5e7eb;}
-    tbody tr{border-bottom:1px solid #f3f4f6;}
-    .ai-report-printable{} @media print{@page{margin:1.5cm;size:A4;}}`;
-  const blob=new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Losung360 IBMS Report</title><style>${css}</style></head><body>${el.innerHTML}</body></html>`],{type:'text/html'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.html`;
-  a.click();
+
+// ── Download colored PDF ──────────────────────────────────────────────────────
+async function downloadReport() {
+  const el = document.getElementById('ai-report-printable');
+  if (!el) return;
+  const btn = document.querySelector('#ai-report-actions button');
+  if (btn) { btn.disabled=true; btn.textContent='⏳ Generating PDF…'; }
+  // html2pdf preserves all colors; use light-theme color values for consistent PDF
+  const opt = {
+    margin:       [10, 10, 10, 10],
+    filename:     `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.pdf`,
+    image:        { type:'jpeg', quality:0.97 },
+    html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false },
+    jsPDF:        { unit:'mm', format:'a4', orientation:'portrait' },
+    pagebreak:    { mode:['avoid-all','css'], before:'.page-break-before' }
+  };
+  try {
+    await html2pdf().set(opt).from(el).save();
+  } catch(e) {
+    alert('PDF generation failed: '+e.message);
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='⬇ Download PDF'; }
+  }
 }
 
 </script>
