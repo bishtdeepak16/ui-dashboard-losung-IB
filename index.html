@@ -5041,62 +5041,45 @@ function compileReportData() {
 
 // ── Gemini prompt ─────────────────────────────────────────────────────────────
 function buildPrompt(d) {
-  const num = o => ({n:o.n,gu:o.gu,fulfPct:o.fulfPct,sdPct:o.sdPct,dsPct:o.dsPct,
-    medTAT:o.medTAT,nullPct:o.nullPct,advPct:o.advPct,
-    clients:(o.topClients||[]).slice(0,10).map(c=>({cl:c.cl,n:c.n,gu:c.gu,dsPct:c.dsPct,sdPct:c.sdPct,fulfPct:c.fulfPct}))});
-  const payload = {
-    weekPeriod:{current:d.windows.week.label, previous:d.windows.pweek.label},
-    mtdPeriod:{current:d.windows.mtd.label, previous:d.windows.pmtd.label},
-    weekData:{current:num(d.week), previous:num(d.pweek)},
-    mtdData:{current:num(d.mtd), previous:num(d.pmtd)},
+  // Send only the bare minimum numbers — every token costs quota on the free tier.
+  // We pre-calculate the deltas ourselves so Gemini only needs to write prose,
+  // not re-derive numbers, keeping the output tokens low too.
+  const S = (v,u='') => v==null?'N/A':`${v}${u}`;
+  const DIFF = (a,b,u='') => {
+    if(a==null||b==null) return 'N/A';
+    const d=(a-b); return `${d>=0?'+':''}${d.toFixed(u==='%'?1:0)}${u}`;
   };
-  return `You are a senior operations analyst for Losung360, an Indian 3PL fulfillment company.
-Write a professional weekly operations report covering two sections. Use real numbers from the data only.
+  const w=d.week, pw=d.pweek, m=d.mtd, pm=d.pmtd;
+  // Only top 8 clients, only the fields Gemini needs for commentary
+  const cls = (o,po) => (o.topClients||[]).slice(0,8).map(c=>{
+    const pc=(po.topClients||[]).find(x=>x.cl===c.cl);
+    return `${c.cl}:appts=${c.n},gu=${c.gu},ds%=${S(c.dsPct,'%')},sd%=${S(c.sdPct,'%')},prev_gu=${pc?pc.gu:'?'}`;
+  }).join('|');
 
-DATA: ${JSON.stringify(payload)}
+  const data = `WoW ${d.windows.week.label} vs ${d.windows.pweek.label}:
+appts=${w.n}(prev ${pw.n},${DIFF(w.n,pw.n)}), gi=${w.gi}(${pw.gi}), fulfil%=${S(w.fulfPct,'%')}(${S(pw.fulfPct,'%')},${DIFF(w.fulfPct,pw.fulfPct,'%')}pp), sd%=${S(w.sdPct,'%')}(${S(pw.sdPct,'%')},${DIFF(w.sdPct,pw.sdPct,'%')}pp), gu=${w.gu}(${pw.gu},${DIFF(w.gu,pw.gu)}), ds%=${S(w.dsPct,'%')}(${S(pw.dsPct,'%')},${DIFF(w.dsPct,pw.dsPct,'%')}pp), null%=${S(w.nullPct,'%')}(${S(pw.nullPct,'%')}), tat=${S(w.medTAT,'h')}(${S(pw.medTAT,'h')})
+clients: ${cls(w,pw)}
 
-SECTION 1 — WEEK ON WEEK: ${d.windows.week.label} vs ${d.windows.pweek.label}
-SECTION 2 — MTD vs MTD: ${d.windows.mtd.label} vs ${d.windows.pmtd.label}
+MTD ${d.windows.mtd.label} vs ${d.windows.pmtd.label}:
+appts=${m.n}(prev ${pm.n},${DIFF(m.n,pm.n)}), gi=${m.gi}(${pm.gi}), fulfil%=${S(m.fulfPct,'%')}(${S(pm.fulfPct,'%')},${DIFF(m.fulfPct,pm.fulfPct,'%')}pp), sd%=${S(m.sdPct,'%')}(${S(pm.sdPct,'%')},${DIFF(m.sdPct,pm.sdPct,'%')}pp), gu=${m.gu}(${pm.gu},${DIFF(m.gu,pm.gu)}), ds%=${S(m.dsPct,'%')}(${S(pm.dsPct,'%')},${DIFF(m.dsPct,pm.dsPct,'%')}pp), null%=${S(m.nullPct,'%')}(${S(pm.nullPct,'%')})
+clients: ${cls(m,pm)}`;
 
-Return ONLY valid JSON with this exact structure:
-{
-  "wowSummary":"2-3 sentence week-on-week executive summary with specific numbers",
-  "wowHighlights":["specific positive observation with numbers","second highlight"],
-  "wowConcerns":["specific concern with numbers","second concern"],
-  "wowMetrics":[
-    {"name":"Total Appointments","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
-    {"name":"Gate-Ins","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
-    {"name":"Fulfilment %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Same-Day Clearance %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Good Units","curr":"X","prev":"X","delta":"+X%","dir":"up|down|same"},
-    {"name":"D+S Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Null Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Median TAT","curr":"Xh","prev":"Xh","delta":"+Xh","dir":"up|down|same"}
-  ],
-  "wowClientNotes":[{"client":"name","note":"specific week-on-week observation"}],
-  "mtdSummary":"2-3 sentence MTD executive summary with specific numbers",
-  "mtdHighlights":["specific MTD positive with numbers","second highlight"],
-  "mtdConcerns":["specific MTD concern with numbers","second concern"],
-  "mtdMetrics":[
-    {"name":"Total Appointments","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
-    {"name":"Gate-Ins","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
-    {"name":"Fulfilment %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Same-Day Clearance %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Good Units","curr":"X","prev":"X","delta":"+X%","dir":"up|down|same"},
-    {"name":"D+S Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
-    {"name":"Null Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"}
-  ],
-  "mtdClientNotes":[{"client":"name","note":"specific MTD observation"}],
-  "actions":["action 1 with specific client or metric","action 2","action 3","action 4"]
-}`;
+  return `Losung360 3PL India inbound ops analyst. Write 2-section report. Use exact numbers from DATA only.
+
+DATA:
+${data}
+
+Return ONLY valid compact JSON (no markdown):
+{"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}pp","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}pp","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}pp","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}pp","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}pp","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}pp","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(m.dsPct,'%')}","prev":"${S(pm.dsPct,'%')}","delta":"${DIFF(m.dsPct,pm.dsPct,'%')}pp","dir":"${(m.dsPct||0)<=(pm.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}pp","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["specific action 1","action 2","action 3"]}`;
 }
 
 // ── Gemini call ───────────────────────────────────────────────────────────────
 async function callGemini(prompt, apiKey) {
+  // gemini-2.0-flash-lite: free tier, lower token cost than full flash
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
     {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:3000}})}
+     body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1500}})}
   );
   if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||`Gemini ${resp.status}`);}
   const j=await resp.json();
