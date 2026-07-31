@@ -1146,7 +1146,9 @@ select:hover,select:focus{border-color:var(--orange);}
 // ── CONFIG ──────────────────────────────
 const SHEET_ID = '1SgelBlfese2hrxqjUm-ZcEAV7UQXuGmRg10B9ioB04I';
 const USERS_SHEET_ID = '1Fdp5T5WMZNv6Ggwqr4ulVuIgteu0b_Q8rf77pF4d32s';
-const GROQ_KEY = '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';
+const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudflare-worker.js)
+// ↓ Paste your Cloudflare Worker URL here after deploying it (see cloudflare-worker.js)
+const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -4965,6 +4967,21 @@ function prioritySort(clients) {
 
 function openAIReport() {
   document.getElementById('ai-report-overlay').classList.add('open');
+  // If proxy URL not yet configured, show a one-time setup notice for the admin
+  if (GROQ_PROXY.includes('YOUR-WORKER')) {
+    document.getElementById('ai-report-content').innerHTML = `
+      <div style="text-align:center;padding:32px 24px;">
+        <div style="font-size:32px;margin-bottom:12px;">⚙️</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:8px;">One-time Admin Setup Required</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.8;max-width:440px;margin:0 auto;">
+          Deploy the <b>cloudflare-worker.js</b> file to Cloudflare Workers (free),<br>
+          then replace <code>YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev</code><br>
+          with your actual Worker URL in <code>index.html</code>.<br><br>
+          Once done, <b>every user can generate reports with one click</b> —<br>
+          no API key entry needed, key stays secure in Cloudflare.
+        </div>
+      </div>`;
+  }
 }
 function closeAIReport() {
   document.getElementById('ai-report-overlay').classList.remove('open');
@@ -5082,24 +5099,28 @@ Return ONLY valid compact JSON (no markdown):
 {"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}pp","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}pp","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}pp","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}pp","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}pp","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}pp","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(m.dsPct,'%')}","prev":"${S(pm.dsPct,'%')}","delta":"${DIFF(m.dsPct,pm.dsPct,'%')}pp","dir":"${(m.dsPct||0)<=(pm.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}pp","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["specific action 1","action 2","action 3"]}`;
 }
 
-// ── AI call — Groq only, key hardcoded ───────────────────────────────────────
+// ── AI call — via Cloudflare Worker proxy (key stays in Cloudflare, never here) ──
 async function callAI(prompt) {
-  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+GROQ_KEY},
+  if (GROQ_PROXY.includes('YOUR-WORKER')) {
+    throw new Error('Cloudflare Worker not configured yet. See cloudflare-worker.js setup instructions.');
+  }
+  // Call your Worker proxy — it adds the Groq key server-side and forwards
+  const resp = await fetch(GROQ_PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model:'llama-3.3-70b-versatile',
-      messages:[{role:'user',content:prompt}],
-      temperature:0.3, max_tokens:1500,
-      response_format:{type:'json_object'}
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3, max_tokens: 1500,
+      response_format: { type: 'json_object' }
     })
   });
-  if(!resp.ok){
-    const e=await resp.json().catch(()=>({}));
-    throw new Error(e.error?.message||`Groq error ${resp.status}`);
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}));
+    throw new Error(e.error?.message || `Proxy error ${resp.status}`);
   }
-  const j=await resp.json();
-  const raw=(j.choices?.[0]?.message?.content||'').replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
+  const j = await resp.json();
+  const raw = (j.choices?.[0]?.message?.content || '').replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
   return JSON.parse(raw);
 }
 // ── Render 2-page report ──────────────────────────────────────────────────────
@@ -5145,14 +5166,15 @@ function renderReport(rpt, d) {
   }
 
   // KPI band
-  function kpiBand(m) {
+  function kpiBand(m, rgb) {
+    const c = rgb || '99,102,241';
     const kpis=[
       ['Appts',F(m.n)],['Gate-Ins',F(m.gi)],['Fulfilment',P(m.fulfPct)],
       ['Same-Day',P(m.sdPct)],['Good Units',F(m.gu)],['D+S Rate',P(m.dsPct)],
       ['Null Rate',P(m.nullPct)],['Median TAT',m.medTAT?m.medTAT+'h':'—']
     ];
     return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
-      ${kpis.map(([l,v])=>`<div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:12px;text-align:center;">
+      ${kpis.map(([l,v])=>`<div style="background:rgba(${c},.06);border:1px solid rgba(${c},.18);border-radius:10px;padding:12px;text-align:center;">
         <div style="font-size:20px;font-weight:800;color:var(--text1);letter-spacing:-.02em;">${v}</div>
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin-top:3px;">${l}</div>
       </div>`).join('')}
@@ -5284,15 +5306,7 @@ function renderReport(rpt, d) {
 
       <!-- KPI Band (teal) -->
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CURRENT MTD AT A GLANCE</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
-        ${[['Appts',d.mtd.n],['Gate-Ins',d.mtd.gi],['Fulfilment',d.mtd.fulfPct+'%'],
-           ['Same-Day',d.mtd.sdPct+'%'],['Good Units',d.mtd.gu],['D+S Rate',d.mtd.dsPct+'%'],
-           ['Null Rate',d.mtd.nullPct+'%'],['Median TAT',d.mtd.medTAT?d.mtd.medTAT+'h':'—']
-          ].map(([l,v])=>`<div style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.15);border-radius:10px;padding:12px;text-align:center;">
-          <div style="font-size:20px;font-weight:800;color:var(--text1);letter-spacing:-.02em;">${F(v)||v}</div>
-          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin-top:3px;">${l}</div>
-        </div>`).join('')}
-      </div>
+      ${kpiBand(d.mtd, '5,150,105')}
 
       <!-- MTD Metric Table -->
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">MTD METRIC COMPARISON</div>
@@ -5361,28 +5375,41 @@ async function triggerAIReport() {
 }
 
 
-// ── Download colored PDF ──────────────────────────────────────────────────────
-async function downloadReport() {
+// ── Download colored PDF via browser print ────────────────────────────────────
+function downloadReport() {
   const el = document.getElementById('ai-report-printable');
   if (!el) return;
-  const btn = document.querySelector('#ai-report-actions button');
-  if (btn) { btn.disabled=true; btn.textContent='⏳ Generating PDF…'; }
-  // html2pdf preserves all colors; use light-theme color values for consistent PDF
-  const opt = {
-    margin:       [10, 10, 10, 10],
-    filename:     `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.pdf`,
-    image:        { type:'jpeg', quality:0.97 },
-    html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false },
-    jsPDF:        { unit:'mm', format:'a4', orientation:'portrait' },
-    pagebreak:    { mode:['avoid-all','css'], before:'.page-break-before' }
+  // Resolve CSS variables to actual light-theme values so print window renders correctly
+  const colorMap = {
+    'var(--card-bg)':'#ffffff', 'var(--card-border)':'#e5e7eb',
+    'var(--text1)':'#111827',   'var(--text2)':'#374151',
+    'var(--text3)':'#9ca3af',   'var(--orange-tint)':'#fff7ed',
   };
-  try {
-    await html2pdf().set(opt).from(el).save();
-  } catch(e) {
-    alert('PDF generation failed: '+e.message);
-  } finally {
-    if (btn) { btn.disabled=false; btn.textContent='⬇ Download PDF'; }
-  }
+  let html = el.outerHTML;
+  Object.entries(colorMap).forEach(([v,c]) => {
+    html = html.replaceAll(v, c);
+  });
+  const w = window.open('', '_blank', 'width=920,height=800');
+  if (!w) { alert('Pop-up blocked — allow pop-ups for this site then try again.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8"><title>Losung360 IBMS Report</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 20px; font-family: 'Segoe UI', Arial, sans-serif; background: #f3f4f6; }
+      table { border-collapse: collapse; }
+      @media print {
+        body { margin: 0; padding: 0; background: #f3f4f6; }
+        @page { margin: 0.8cm; size: A4; }
+      }
+    </style>
+  </head><body>${html}
+  <script>
+    // Auto-trigger print dialog once styles are loaded
+    window.onload = function() {
+      setTimeout(function(){ window.print(); }, 600);
+    };
+  <\/script></body></html>`);
+  w.document.close();
 }
 
 </script>
