@@ -4942,17 +4942,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <button class="ai-rpt-btn generate" id="ai-gen-btn" onclick="triggerAIReport()">Generate Report</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;">
-            <input type="radio" name="ai-period" value="week" checked> This Week (last 7 days)
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;">
-            <input type="radio" name="ai-period" value="mtd"> Month to Date
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;">
-            <input type="radio" name="ai-period" value="both"> Week + MTD
-          </label>
-        </div>
       </div>
       <div id="ai-report-content" style="margin-top:16px;"></div>
     </div>
@@ -4960,316 +4949,427 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-// ── AI REPORT — Gemini-powered weekly operations analysis ──────────
+// ── AI REPORT — Week-on-Week + MTD vs MTD, 2-page layout ──────────
 
 function openAIReport() {
-  const overlay = document.getElementById('ai-report-overlay');
-  overlay.classList.add('open');
-  // Pre-fill saved API key
-  const saved = localStorage.getItem('_geminiKey') || '';
+  document.getElementById('ai-report-overlay').classList.add('open');
+  const saved = localStorage.getItem('_geminiKey')||'';
   const inp = document.getElementById('ai-report-key-inp');
-  if (inp && saved) inp.value = saved;
+  if(inp && saved) inp.value = saved;
 }
 function closeAIReport() {
   document.getElementById('ai-report-overlay').classList.remove('open');
 }
 
-// ── Compile snapshot of ALL_DATA into a compact summary for Gemini ──
-function compileReportData(period) {
-  const now = new Date(); now.setHours(23,59,59,999);
-  const d7  = new Date(now); d7.setDate(d7.getDate()-7);   d7.setHours(0,0,0,0);
-  const d14 = new Date(now); d14.setDate(d14.getDate()-14); d14.setHours(0,0,0,0);
-  const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  function slice(from, to) {
-    return ALL_DATA.filter(r => r._schedDate && r._schedDate >= from && r._schedDate <= to);
-  }
-  function metrics(rows) {
-    const total = rows.length;
-    if (!total) return {total:0};
-    const fulfilled = rows.filter(r=>r._gateIn&&r._gateOut).length;
-    const gateIn = rows.filter(r=>r._gateIn).length;
-    const sameDay = rows.filter(r=>r._gateIn&&r._gateOut&&r._gateIn.toDateString()===r._gateOut.toDateString()).length;
-    const completed = rows.filter(r=>r._gateIn&&r._gateOut);
-    const advance = rows.filter(r=>r['Appt Type']==='Advance').length;
-    const nullAppts = rows.filter(r=>r._updatedStatus==='Null').length;
-    const totalGoodUnits = rows.reduce((a,r)=>a+r._goodUnits,0);
-    const totalDmgShort  = rows.reduce((a,r)=>a+r._damagedUnits+r._shortUnits,0);
-    const totalAllUnits  = rows.reduce((a,r)=>a+r._totalUnits,0);
-    const tatArr = completed.map(r=>r._tatHrs).filter(v=>v>0);
-    const medTAT = tatArr.length ? (tatArr.sort((a,b)=>a-b)[Math.floor(tatArr.length/2)]).toFixed(1) : null;
-    // By client
-    const byClient = {};
-    rows.forEach(r=>{
-      const cl = normClient(r['Client'])||'?';
-      if(!byClient[cl]) byClient[cl]={appts:0,goodUnits:0,totalUnits:0,dmgShort:0,gateIn:0,gateOut:0,sameDay:0};
-      byClient[cl].appts++;
-      byClient[cl].goodUnits  += r._goodUnits;
-      byClient[cl].totalUnits += r._totalUnits;
-      byClient[cl].dmgShort   += r._damagedUnits+r._shortUnits;
-      if(r._gateIn)  byClient[cl].gateIn++;
-      if(r._gateOut) byClient[cl].gateOut++;
-      if(r._gateIn&&r._gateOut&&r._gateIn.toDateString()===r._gateOut.toDateString()) byClient[cl].sameDay++;
-    });
-    const topClients = Object.entries(byClient)
-      .sort((a,b)=>b[1].goodUnits-a[1].goodUnits).slice(0,12)
-      .map(([cl,v])=>({
-        client: cl, appts: v.appts,
-        goodUnits: v.goodUnits,
-        dsRate: v.totalUnits>0 ? (v.dmgShort/v.totalUnits*100).toFixed(2)+'%' : 'N/A',
-        fulfilPct: v.appts>0 ? (v.gateOut/v.appts*100).toFixed(1)+'%' : 'N/A',
-        sdPct: v.gateOut>0 ? (v.sameDay/v.gateOut*100).toFixed(1)+'%' : 'N/A'
-      }));
-    return {
-      total, fulfilled, gateIn, advance, nullAppts,
-      fulfilPct: (gateIn/total*100).toFixed(1)+'%',
-      sdPct: fulfilled>0 ? (sameDay/fulfilled*100).toFixed(1)+'%' : 'N/A',
-      advancePct: (advance/total*100).toFixed(1)+'%',
-      nullPct: (nullAppts/total*100).toFixed(1)+'%',
-      goodUnits: totalGoodUnits,
-      dsRate: totalAllUnits>0 ? (totalDmgShort/totalAllUnits*100).toFixed(2)+'%' : 'N/A',
-      medTAT: medTAT ? medTAT+' hrs' : 'N/A',
-      topClients
-    };
-  }
-
-  const curr  = slice(d7, now);
-  const prev  = slice(d14, new Date(d7.getTime()-1));
-  const mtd   = slice(mtdStart, now);
-
-  const result = {period, generatedAt: new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})};
-  if (period==='week'||period==='both') {
-    result.currentWeek = metrics(curr);
-    result.previousWeek = metrics(prev);
-  }
-  if (period==='mtd'||period==='both') {
-    result.mtd = metrics(mtd);
-  }
-  return result;
+// ── Date windows ──────────────────────────────────────────────────────────────
+// Always called on Monday. "Last week" = Mon-Sun that just ended (yesterday).
+// "Week before" = the Mon-Sun before that. MTD = 1-{lastSunday} vs same in prev month.
+function getReportWindows() {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun,1=Mon,...
+  // Days since last Sunday
+  const dSinceSun = dow === 0 ? 0 : dow;
+  const sun1 = new Date(now); sun1.setDate(now.getDate()-dSinceSun); sun1.setHours(23,59,59,999);
+  const mon1 = new Date(sun1); mon1.setDate(sun1.getDate()-6); mon1.setHours(0,0,0,0);
+  const sun2 = new Date(mon1.getTime()-1); sun2.setHours(23,59,59,999);
+  const mon2 = new Date(sun2); mon2.setDate(sun2.getDate()-6); mon2.setHours(0,0,0,0);
+  // MTD: 1st of sun1's month → sun1 vs 1st of prev month → same day prev month
+  const mtdStart  = new Date(sun1.getFullYear(), sun1.getMonth(), 1, 0,0,0,0);
+  const mtdEnd    = new Date(sun1);
+  const pmtdStart = new Date(sun1.getFullYear(), sun1.getMonth()-1, 1, 0,0,0,0);
+  const pmtdEnd   = new Date(sun1.getFullYear(), sun1.getMonth()-1, sun1.getDate(), 23,59,59,999);
+  const D = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  return {
+    week:  {start:mon1, end:sun1, label:`${D(mon1)} – ${D(sun1)}`},
+    pweek: {start:mon2, end:sun2, label:`${D(mon2)} – ${D(sun2)}`},
+    mtd:   {start:mtdStart, end:mtdEnd, label:`${D(mtdStart)} – ${D(mtdEnd)}`},
+    pmtd:  {start:pmtdStart,end:pmtdEnd,label:`${D(pmtdStart)} – ${D(pmtdEnd)}`},
+  };
 }
 
-function fmtNum(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);}
-
-function deltaClass(curr, prev){
-  if(!curr||!prev) return 'rpt-delta-neu';
-  const c=parseFloat(curr), p=parseFloat(prev);
-  if(isNaN(c)||isNaN(p)) return 'rpt-delta-neu';
-  return c>=p ? 'rpt-delta-pos' : 'rpt-delta-neg';
+// ── Aggregate metrics for a slice of data ────────────────────────────────────
+function agg(rows) {
+  const n = rows.length;
+  if(!n) return {n:0,topClients:[]};
+  const gi  = rows.filter(r=>r._gateIn).length;
+  const co  = rows.filter(r=>r._gateIn&&r._gateOut);
+  const sd  = co.filter(r=>r._gateIn.toDateString()===r._gateOut.toDateString()).length;
+  const adv = rows.filter(r=>r['Appt Type']==='Advance').length;
+  const nul = rows.filter(r=>r._updatedStatus==='Null').length;
+  const gu  = rows.reduce((a,r)=>a+r._goodUnits,0);
+  const tu  = rows.reduce((a,r)=>a+r._totalUnits,0);
+  const ds  = rows.reduce((a,r)=>a+r._damagedUnits+r._shortUnits,0);
+  const tatA= co.map(r=>r._tatHrs).filter(v=>v>0).sort((a,b)=>a-b);
+  const medT= tatA.length?tatA[Math.floor(tatA.length/2)]:null;
+  const byC={};
+  rows.forEach(r=>{
+    const cl=normClient(r['Client'])||'?';
+    if(!byC[cl]) byC[cl]={n:0,gu:0,tu:0,ds:0,go:0,sd:0};
+    byC[cl].n++; byC[cl].gu+=r._goodUnits; byC[cl].tu+=r._totalUnits;
+    byC[cl].ds+=r._damagedUnits+r._shortUnits;
+    if(r._gateOut) byC[cl].go++;
+    if(r._gateIn&&r._gateOut&&r._gateIn.toDateString()===r._gateOut.toDateString()) byC[cl].sd++;
+  });
+  const topClients=Object.entries(byC).sort((a,b)=>b[1].gu-a[1].gu).slice(0,15)
+    .map(([cl,v])=>({cl,n:v.n,gu:v.gu,tu:v.tu,
+      dsPct:v.tu>0?+(v.ds/v.tu*100).toFixed(2):null,
+      fulfPct:v.n>0?+(v.go/v.n*100).toFixed(1):null,
+      sdPct:v.go>0?+(v.sd/v.go*100).toFixed(1):null}));
+  return {n,gi,co:co.length,sd,adv,nul,gu,tu,ds,
+    fulfPct:gi>0?+(gi/n*100).toFixed(1):null,
+    sdPct:co.length>0?+(sd/co.length*100).toFixed(1):null,
+    advPct:+(adv/n*100).toFixed(1),
+    nullPct:+(nul/n*100).toFixed(1),
+    dsPct:tu>0?+(ds/tu*100).toFixed(2):null,
+    medTAT:medT?+medT.toFixed(1):null,
+    topClients};
 }
 
-// ── Build the Gemini prompt ──────────────────────────────────────
-function buildPrompt(data) {
-  return `You are an expert logistics and warehouse operations analyst for Losung360, a third-party fulfillment company running multiple fulfillment centers across India (Mumbai, Hyderabad, Gurugram, Kolkata, Bangalore, Chennai, Kochi).
+function slice(from,to){ return ALL_DATA.filter(r=>r._schedDate&&r._schedDate>=from&&r._schedDate<=to); }
 
-Analyze the following inbound operations data and write a professional, insightful business report.
+function compileReportData() {
+  const w = getReportWindows();
+  return {
+    windows:w,
+    generatedAt: new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),
+    week:  agg(slice(w.week.start,  w.week.end)),
+    pweek: agg(slice(w.pweek.start, w.pweek.end)),
+    mtd:   agg(slice(w.mtd.start,   w.mtd.end)),
+    pmtd:  agg(slice(w.pmtd.start,  w.pmtd.end)),
+  };
+}
 
-DATA:
-${JSON.stringify(data, null, 2)}
+// ── Gemini prompt ─────────────────────────────────────────────────────────────
+function buildPrompt(d) {
+  const num = o => ({n:o.n,gu:o.gu,fulfPct:o.fulfPct,sdPct:o.sdPct,dsPct:o.dsPct,
+    medTAT:o.medTAT,nullPct:o.nullPct,advPct:o.advPct,
+    clients:(o.topClients||[]).slice(0,10).map(c=>({cl:c.cl,n:c.n,gu:c.gu,dsPct:c.dsPct,sdPct:c.sdPct,fulfPct:c.fulfPct}))});
+  const payload = {
+    weekPeriod:{current:d.windows.week.label, previous:d.windows.pweek.label},
+    mtdPeriod:{current:d.windows.mtd.label, previous:d.windows.pmtd.label},
+    weekData:{current:num(d.week), previous:num(d.pweek)},
+    mtdData:{current:num(d.mtd), previous:num(d.pmtd)},
+  };
+  return `You are a senior operations analyst for Losung360, an Indian 3PL fulfillment company.
+Write a professional weekly operations report covering two sections. Use real numbers from the data only.
 
-INSTRUCTIONS:
-- Focus on client-level insights, trends, and anomalies
-- Be specific with numbers — use the actual figures from the data
-- Identify which clients are performing well and which need attention
-- Compare week-over-week where data is available
-- Write in a professional but readable tone suitable for operations managers and senior leadership
-- Be concise but comprehensive
+DATA: ${JSON.stringify(payload)}
 
-Return ONLY valid JSON (no markdown, no explanation outside the JSON) with this exact structure:
+SECTION 1 — WEEK ON WEEK: ${d.windows.week.label} vs ${d.windows.pweek.label}
+SECTION 2 — MTD vs MTD: ${d.windows.mtd.label} vs ${d.windows.pmtd.label}
+
+Return ONLY valid JSON with this exact structure:
 {
-  "title": "Losung360 IBMS — Weekly Operations Report",
-  "period": "string describing the period",
-  "executiveSummary": "3-4 sentence paragraph summarizing overall performance",
-  "highlights": ["highlight 1", "highlight 2", "highlight 3"],
-  "concerns": ["concern 1", "concern 2", "concern 3"],
-  "clientInsights": [
-    {"client": "name", "status": "good|warning|critical", "note": "one sentence insight"}
+  "wowSummary":"2-3 sentence week-on-week executive summary with specific numbers",
+  "wowHighlights":["specific positive observation with numbers","second highlight"],
+  "wowConcerns":["specific concern with numbers","second concern"],
+  "wowMetrics":[
+    {"name":"Total Appointments","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
+    {"name":"Gate-Ins","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
+    {"name":"Fulfilment %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Same-Day Clearance %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Good Units","curr":"X","prev":"X","delta":"+X%","dir":"up|down|same"},
+    {"name":"D+S Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Null Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Median TAT","curr":"Xh","prev":"Xh","delta":"+Xh","dir":"up|down|same"}
   ],
-  "wowChanges": [
-    {"metric": "metric name", "current": "value", "previous": "value", "direction": "up|down|same"}
+  "wowClientNotes":[{"client":"name","note":"specific week-on-week observation"}],
+  "mtdSummary":"2-3 sentence MTD executive summary with specific numbers",
+  "mtdHighlights":["specific MTD positive with numbers","second highlight"],
+  "mtdConcerns":["specific MTD concern with numbers","second concern"],
+  "mtdMetrics":[
+    {"name":"Total Appointments","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
+    {"name":"Gate-Ins","curr":"X","prev":"X","delta":"+X","dir":"up|down|same"},
+    {"name":"Fulfilment %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Same-Day Clearance %","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Good Units","curr":"X","prev":"X","delta":"+X%","dir":"up|down|same"},
+    {"name":"D+S Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"},
+    {"name":"Null Rate","curr":"X%","prev":"X%","delta":"+Xpp","dir":"up|down|same"}
   ],
-  "actions": ["action 1", "action 2", "action 3", "action 4"]
+  "mtdClientNotes":[{"client":"name","note":"specific MTD observation"}],
+  "actions":["action 1 with specific client or metric","action 2","action 3","action 4"]
 }`;
 }
 
-// ── Call Gemini API ──────────────────────────────────────────────
+// ── Gemini call ───────────────────────────────────────────────────────────────
 async function callGemini(prompt, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      contents:[{parts:[{text:prompt}]}],
-      generationConfig:{temperature:0.4, maxOutputTokens:2048}
-    })
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(()=>({}));
-    throw new Error(err.error?.message || `Gemini API error ${resp.status}`);
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:3000}})}
+  );
+  if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||`Gemini ${resp.status}`);}
+  const j=await resp.json();
+  const raw=(j.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
+  return JSON.parse(raw);
+}
+
+// ── Render 2-page report ──────────────────────────────────────────────────────
+function renderReport(rpt, d) {
+  const content = document.getElementById('ai-report-content');
+  document.getElementById('ai-report-actions').innerHTML =
+    `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download Report</button>`;
+
+  const F = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n==null?'—':String(Math.round(n));
+  const P = v => v==null?'—':v+'%';
+
+  function dirChip(dir,delta){
+    const up=dir==='up', dn=dir==='down';
+    const col=up?'#16a34a':dn?'#dc2626':'#6b7280';
+    const bg=up?'#dcfce7':dn?'#fee2e2':'#f3f4f6';
+    const icon=up?'▲':dn?'▼':'—';
+    return `<span style="background:${bg};color:${col};padding:3px 8px;border-radius:20px;font-size:10px;font-weight:800;">${icon} ${delta}</span>`;
   }
-  const json = await resp.json();
-  const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  // Strip markdown code fences if present
-  const cleaned = raw.replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
-  return JSON.parse(cleaned);
-}
 
-// ── Render the report HTML ───────────────────────────────────────
-function renderReport(report, data) {
-  const content = document.getElementById('ai-report-content');
-  const actions = document.getElementById('ai-report-actions');
+  // Metric comparison table
+  function metricTable(metrics, currHdr, prevHdr) {
+    return `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="border-bottom:2px solid var(--card-border);">
+        <th style="text-align:left;padding:8px 0;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Metric</th>
+        <th style="text-align:right;padding:8px 12px;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">${currHdr}</th>
+        <th style="text-align:right;padding:8px 12px;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">${prevHdr}</th>
+        <th style="text-align:right;padding:8px 0;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Change</th>
+      </tr></thead>
+      <tbody>${(metrics||[]).map((m,i)=>`
+        <tr style="border-bottom:1px solid var(--card-border);background:${i%2?'rgba(0,0,0,.018)':'transparent'};">
+          <td style="padding:10px 0;font-weight:600;color:var(--text1);">${m.name}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:800;color:var(--text1);font-size:14px;">${m.curr}</td>
+          <td style="padding:10px 12px;text-align:right;color:var(--text3);">${m.prev}</td>
+          <td style="padding:10px 0;text-align:right;">${dirChip(m.dir,m.delta)}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
 
-  // Add download button
-  actions.innerHTML = `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download HTML</button>`;
-
-  const statusIcon = s => s==='good'?'🟢':s==='warning'?'🟡':'🔴';
-
-  // Build wow rows
-  const wowRows = (report.wowChanges||[]).map(w=>`
-    <div class="rpt-wow-row">
-      <span>${w.metric}</span>
-      <span>
-        <span class="${w.direction==='up'?'rpt-delta-pos':w.direction==='down'?'rpt-delta-neg':'rpt-delta-neu'}">
-          ${w.direction==='up'?'▲':w.direction==='down'?'▼':'–'} ${w.current}
-        </span>
-        <span style="color:var(--text3);font-size:10px;margin-left:6px;">vs ${w.previous}</span>
-      </span>
-    </div>`).join('');
-
-  // KPI grid from current week or MTD
-  const m = data.currentWeek || data.mtd || {};
-  const kpiGrid = m.total ? `<div class="rpt-kpi-grid">
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${m.total}</div><div class="rpt-kpi-lbl">Appointments</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${m.fulfilPct}</div><div class="rpt-kpi-lbl">Fulfilment</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${m.sdPct}</div><div class="rpt-kpi-lbl">Same-Day</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${m.dsRate}</div><div class="rpt-kpi-lbl">D+S Rate</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${m.medTAT}</div><div class="rpt-kpi-lbl">Median TAT</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-val">${fmtNum(m.goodUnits)}</div><div class="rpt-kpi-lbl">Good Units</div></div>
-  </div>` : '';
-
-  // Client bars
-  const maxUnits = Math.max(...(m.topClients||[]).map(c=>c.goodUnits),1);
-  const clientRows = (m.topClients||[]).map(c=>{
-    const pct = (c.goodUnits/maxUnits*100).toFixed(1);
-    const insight = (report.clientInsights||[]).find(ci=>ci.client===c.client);
-    return `<div class="rpt-client-row">
-      <div class="rpt-client-name">${statusIcon(insight?.status||'good')} ${c.client}</div>
-      <div class="rpt-client-bar-wrap"><div class="rpt-client-bar" style="width:${pct}%"></div></div>
-      <div class="rpt-client-stat">${fmtNum(c.goodUnits)} u · ${c.dsRate} D+S</div>
+  // KPI band
+  function kpiBand(m) {
+    const kpis=[
+      ['Appts',F(m.n)],['Gate-Ins',F(m.gi)],['Fulfilment',P(m.fulfPct)],
+      ['Same-Day',P(m.sdPct)],['Good Units',F(m.gu)],['D+S Rate',P(m.dsPct)],
+      ['Null Rate',P(m.nullPct)],['Median TAT',m.medTAT?m.medTAT+'h':'—']
+    ];
+    return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
+      ${kpis.map(([l,v])=>`<div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:var(--text1);letter-spacing:-.02em;">${v}</div>
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin-top:3px;">${l}</div>
+      </div>`).join('')}
     </div>`;
-  }).join('');
+  }
 
-  content.innerHTML = `<div class="ai-report" id="ai-report-printable">
-    <h1>${report.title}</h1>
-    <div class="rpt-meta">Generated ${data.generatedAt} · Losung360 IBMS</div>
+  // Client table
+  function clientTable(curr, prev, notes) {
+    const maxGU = Math.max(...curr.map(c=>c.gu),1);
+    return `<table style="width:100%;border-collapse:collapse;font-size:11.5px;">
+      <thead><tr style="border-bottom:2px solid var(--card-border);">
+        <th style="text-align:left;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Rank · Client</th>
+        <th style="padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Volume</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Good Units</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Prev</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Fulfil%</th>
+        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">SD%</th>
+        <th style="text-align:right;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">D+S%</th>
+      </tr></thead>
+      <tbody>${curr.map((c,i)=>{
+        const pc = prev.find(p=>p.cl===c.cl);
+        const guDelta = pc&&pc.gu>0?((c.gu-pc.gu)/pc.gu*100).toFixed(0):null;
+        const guDeltaHtml = guDelta!=null?`<span style="font-size:9px;font-weight:700;color:${+guDelta>=0?'#16a34a':'#dc2626'};margin-left:4px;">${+guDelta>=0?'▲':'▼'}${Math.abs(guDelta)}%</span>`:'';
+        const note = (notes||[]).find(x=>x.client===c.cl);
+        const dsColor = c.dsPct!=null&&c.dsPct>2?'#dc2626':'var(--text1)';
+        const sdColor = c.sdPct!=null&&c.sdPct<70?'#dc2626':'#16a34a';
+        const barW = (c.gu/maxGU*100).toFixed(1);
+        return `<tr style="border-bottom:1px solid var(--card-border);">
+          <td style="padding:10px 0;">
+            <div style="font-weight:800;font-size:12px;color:var(--text1);">#${i+1} ${c.cl}</div>
+            ${note?`<div style="font-size:10px;color:#6366f1;margin-top:2px;">${note.note}</div>`:''}
+          </td>
+          <td style="padding:10px 8px;min-width:80px;">
+            <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${barW}%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:3px;"></div>
+            </div>
+          </td>
+          <td style="text-align:right;padding:10px 8px;font-weight:700;">${F(c.gu)}${guDeltaHtml}</td>
+          <td style="text-align:right;padding:10px 8px;color:var(--text3);">${pc?F(pc.gu):'—'}</td>
+          <td style="text-align:right;padding:10px 8px;">${P(c.fulfPct)}</td>
+          <td style="text-align:right;padding:10px 8px;color:${sdColor};font-weight:700;">${P(c.sdPct)}</td>
+          <td style="text-align:right;padding:10px 0;color:${dsColor};font-weight:700;">${P(c.dsPct)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
+  }
 
-    <div class="rpt-section">
-      <h2>📊 Key Metrics — ${report.period}</h2>
-      ${kpiGrid}
+  // Insight pills
+  function pills(items, type) {
+    const bg=type==='h'?'rgba(99,102,241,.07)':'rgba(239,68,68,.06)';
+    const bc=type==='h'?'#6366f1':'#ef4444';
+    const icon=type==='h'?'✅':'⚠️';
+    return (items||[]).map(t=>`<div style="border-left:3px solid ${bc};background:${bg};padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:var(--text1);margin-bottom:6px;">${icon} ${t}</div>`).join('');
+  }
+
+  // Page header
+  function pageHeader(num, title, subTitle, accentColor) {
+    return `<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid ${accentColor}20;">
+      <div style="width:52px;height:52px;background:${accentColor};border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:900;flex-shrink:0;">${num}</div>
+      <div>
+        <div style="font-size:20px;font-weight:900;color:var(--text1);letter-spacing:-.02em;">${title}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${subTitle}</div>
+      </div>
+    </div>`;
+  }
+
+  const html = `<div id="ai-report-printable">
+
+    <!-- ── REPORT COVER ── -->
+    <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#4c1d95 100%);border-radius:16px;padding:36px 40px;margin-bottom:20px;color:#fff;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(255,255,255,.5);margin-bottom:12px;">LOSUNG360 IBMS · AI OPERATIONS REPORT</div>
+      <div style="font-size:28px;font-weight:900;letter-spacing:-.03em;line-height:1.1;margin-bottom:8px;">Weekly Performance<br>Intelligence Report</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:12px;display:flex;gap:24px;flex-wrap:wrap;">
+        <span>📅 Week: ${d.windows.week.label}</span>
+        <span>📆 MTD: ${d.windows.mtd.label}</span>
+        <span>🤖 Generated ${d.generatedAt}</span>
+      </div>
     </div>
 
-    <div class="rpt-section">
-      <h2>📝 Executive Summary</h2>
-      <p>${report.executiveSummary}</p>
+    <!-- ═══ PAGE 1 — WEEK ON WEEK ═══ -->
+    <div style="border:1.5px solid rgba(99,102,241,.2);border-radius:16px;padding:28px;margin-bottom:20px;background:var(--card-bg);">
+
+      ${pageHeader('01','Week on Week Performance',`${d.windows.week.label}  vs  ${d.windows.pweek.label}`,'#6366f1')}
+
+      <!-- AI Summary -->
+      <div style="background:rgba(99,102,241,.06);border-radius:12px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text1);line-height:1.8;border:1px solid rgba(99,102,241,.15);">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;margin-bottom:6px;">AI ANALYSIS</div>
+        ${rpt.wowSummary||''}
+      </div>
+
+      <!-- KPI Band -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">THIS WEEK AT A GLANCE</div>
+      ${kpiBand(d.week)}
+
+      <!-- Metric Comparison Table -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">METRIC COMPARISON</div>
+      <div style="margin-bottom:20px;">${metricTable(rpt.wowMetrics, d.windows.week.label, d.windows.pweek.label)}</div>
+
+      <!-- Highlights & Concerns -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div>
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">HIGHLIGHTS</div>
+          ${pills(rpt.wowHighlights,'h')}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CONCERNS</div>
+          ${pills(rpt.wowConcerns,'c')}
+        </div>
+      </div>
+
+      <!-- Client Table -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CLIENT PERFORMANCE — TOP ${Math.min(d.week.topClients.length,15)} BY VOLUME</div>
+      ${clientTable(d.week.topClients, d.pweek.topClients, rpt.wowClientNotes)}
     </div>
 
-    <div class="rpt-section">
-      <h2>✅ Highlights</h2>
-      ${(report.highlights||[]).map(h=>`<div class="rpt-highlight">${h}</div>`).join('')}
+    <!-- ═══ PAGE 2 — MTD vs MTD ═══ -->
+    <div style="border:1.5px solid rgba(5,150,105,.2);border-radius:16px;padding:28px;margin-bottom:20px;background:var(--card-bg);">
+
+      ${pageHeader('02','Month-to-Date Performance',`${d.windows.mtd.label}  vs  ${d.windows.pmtd.label}`,'#059669')}
+
+      <!-- AI Summary -->
+      <div style="background:rgba(5,150,105,.06);border-radius:12px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text1);line-height:1.8;border:1px solid rgba(5,150,105,.15);">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#059669;margin-bottom:6px;">AI ANALYSIS</div>
+        ${rpt.mtdSummary||''}
+      </div>
+
+      <!-- KPI Band (teal) -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CURRENT MTD AT A GLANCE</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
+        ${[['Appts',d.mtd.n],['Gate-Ins',d.mtd.gi],['Fulfilment',d.mtd.fulfPct+'%'],
+           ['Same-Day',d.mtd.sdPct+'%'],['Good Units',d.mtd.gu],['D+S Rate',d.mtd.dsPct+'%'],
+           ['Null Rate',d.mtd.nullPct+'%'],['Median TAT',d.mtd.medTAT?d.mtd.medTAT+'h':'—']
+          ].map(([l,v])=>`<div style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.15);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;color:var(--text1);letter-spacing:-.02em;">${F(v)||v}</div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin-top:3px;">${l}</div>
+        </div>`).join('')}
+      </div>
+
+      <!-- MTD Metric Table -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">MTD METRIC COMPARISON</div>
+      <div style="margin-bottom:20px;">${metricTable(rpt.mtdMetrics,'This MTD','Last MTD')}</div>
+
+      <!-- Highlights & Concerns -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div>
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">HIGHLIGHTS</div>
+          ${pills(rpt.mtdHighlights,'h')}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CONCERNS</div>
+          ${pills(rpt.mtdConcerns,'c')}
+        </div>
+      </div>
+
+      <!-- MTD Client Table -->
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CLIENT MTD PERFORMANCE — TOP ${Math.min(d.mtd.topClients.length,15)} BY VOLUME</div>
+      ${clientTable(d.mtd.topClients, d.pmtd.topClients, rpt.mtdClientNotes)}
     </div>
 
-    <div class="rpt-section">
-      <h2>⚠️ Areas of Concern</h2>
-      ${(report.concerns||[]).map(c=>`<div class="rpt-concern">${c}</div>`).join('')}
-    </div>
-
-    ${clientRows ? `<div class="rpt-section">
-      <h2>👥 Client Performance</h2>
-      ${clientRows}
-    </div>` : ''}
-
-    ${wowRows ? `<div class="rpt-section">
-      <h2>📈 Week-over-Week Changes</h2>
-      ${wowRows}
-    </div>` : ''}
-
-    <div class="rpt-section">
-      <h2>🎯 Recommended Actions</h2>
-      ${(report.actions||[]).map(a=>`<div class="rpt-action">${a}</div>`).join('')}
+    <!-- ═══ ACTIONS ═══ -->
+    <div style="border:1.5px solid rgba(245,158,11,.25);border-radius:16px;padding:28px;background:var(--card-bg);">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#d97706;margin-bottom:14px;">🎯 RECOMMENDED ACTIONS</div>
+      ${(rpt.actions||[]).map((a,i)=>`<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--card-border);">
+        <span style="font-size:12px;font-weight:900;color:#d97706;flex-shrink:0;min-width:20px;">${i+1}.</span>
+        <span style="font-size:13px;color:var(--text1);line-height:1.6;">${a}</span>
+      </div>`).join('')}
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--card-border);font-size:10px;color:var(--text3);display:flex;justify-content:space-between;">
+        <span>Losung360 IBMS · AI Report</span>
+        <span>Powered by Gemini 1.5 Flash</span>
+      </div>
     </div>
   </div>`;
+
+  content.innerHTML = html;
 }
 
-// ── Main trigger ─────────────────────────────────────────────────
+// ── Trigger ───────────────────────────────────────────────────────────────────
 async function triggerAIReport() {
-  const inp = document.getElementById('ai-report-key-inp');
-  const btn = document.getElementById('ai-gen-btn');
-  const content = document.getElementById('ai-report-content');
-  const apiKey = (inp?.value||'').trim();
-  if (!apiKey) { alert('Please enter your Gemini API key first.'); return; }
-  if (!ALL_DATA.length) { alert('No data loaded yet — please wait for the dashboard to finish loading.'); return; }
-
+  const apiKey = (document.getElementById('ai-report-key-inp')?.value||'').trim();
+  const btn    = document.getElementById('ai-gen-btn');
+  const content= document.getElementById('ai-report-content');
+  if(!apiKey){alert('Please enter your Gemini API key.');return;}
+  if(!ALL_DATA.length){alert('No data loaded yet — wait for the dashboard to finish loading.');return;}
   localStorage.setItem('_geminiKey', apiKey);
-
-  const period = document.querySelector('input[name="ai-period"]:checked')?.value || 'week';
-  btn.disabled = true;
-  btn.innerHTML = '<span class="ai-spinner"></span> Generating…';
-  content.innerHTML = `<div style="text-align:center;padding:48px 0;color:var(--text3);">
-    <div class="ai-spinner" style="width:32px;height:32px;margin:0 auto 16px;"></div>
-    <div style="font-size:13px;">Analysing your operations data with Gemini…</div>
-    <div style="font-size:11px;margin-top:6px;color:var(--text3);">This usually takes 5–15 seconds</div>
+  btn.disabled=true; btn.innerHTML='<span class="ai-spinner"></span> Generating…';
+  content.innerHTML=`<div style="text-align:center;padding:56px 0;">
+    <div class="ai-spinner" style="width:36px;height:36px;margin:0 auto 16px;"></div>
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">Building WoW + MTD analysis…</div>
+    <div style="font-size:11px;margin-top:6px;color:var(--text3);">Gemini is reading ${ALL_DATA.length.toLocaleString()} appointment records</div>
   </div>`;
-
   try {
-    const data = compileReportData(period);
-    const prompt = buildPrompt(data);
-    const report = await callGemini(prompt, apiKey);
+    const data   = compileReportData();
+    const report = await callGemini(buildPrompt(data), apiKey);
     renderReport(report, data);
-    // Store last report for download
     window._lastAIReport = {report, data};
   } catch(e) {
-    content.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;">
+    content.innerHTML=`<div style="text-align:center;padding:40px;color:#dc2626;">
       <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
-      <div style="font-weight:700;margin-bottom:8px;">Report generation failed</div>
+      <div style="font-weight:700;margin-bottom:8px;">Generation failed</div>
       <div style="font-size:12px;color:var(--text3);">${e.message}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Check your API key and try again</div>
     </div>`;
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Generate Report';
+    btn.disabled=false; btn.innerHTML='Generate Report';
   }
 }
 
+// ── Download ──────────────────────────────────────────────────────────────────
 function downloadReport() {
-  const el = document.getElementById('ai-report-printable');
-  if (!el) return;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Losung360 IBMS Report</title>
-  <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#111827;line-height:1.7;}
-    h1{font-size:22px;font-weight:800;margin:0 0 4px;}
-    .rpt-meta{font-size:12px;color:#9ca3af;margin-bottom:24px;}
-    .rpt-section{margin-bottom:20px;padding:16px 18px;border-radius:12px;border:1px solid #e5e7eb;}
-    .rpt-section h2{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px;color:#374151;}
-    .rpt-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-    .rpt-kpi{background:#fff7ed;border-radius:8px;padding:10px;text-align:center;}
-    .rpt-kpi-val{font-size:18px;font-weight:800;color:#6366f1;}
-    .rpt-kpi-lbl{font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:600;}
-    .rpt-highlight{background:#eef2ff;border-left:3px solid #6366f1;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12.5px;margin-bottom:6px;}
-    .rpt-concern{background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12.5px;margin-bottom:6px;}
-    .rpt-action{background:#f0fdf4;border-left:3px solid #10b981;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12.5px;margin-bottom:6px;}
-    .rpt-client-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12px;}
-    .rpt-client-name{font-weight:700;width:110px;flex-shrink:0;}
-    .rpt-client-bar-wrap{flex:1;height:7px;background:#f3f4f6;border-radius:4px;overflow:hidden;}
-    .rpt-client-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;}
-    .rpt-client-stat{font-size:11px;color:#9ca3af;width:90px;text-align:right;}
-    .rpt-wow-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:12px;}
-    p{font-size:13px;color:#4b5563;margin:0 0 6px;}
-  </style></head><body>${el.innerHTML}</body></html>`;
-  const blob = new Blob([html], {type:'text/html'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.html`;
+  const el=document.getElementById('ai-report-printable');
+  if(!el) return;
+  const css=`body{font-family:'Segoe UI',sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#111827;background:#f9fafb;}
+    table{width:100%;border-collapse:collapse;} th,td{padding:8px;} thead tr{border-bottom:2px solid #e5e7eb;}
+    tbody tr{border-bottom:1px solid #f3f4f6;}
+    .ai-report-printable{} @media print{@page{margin:1.5cm;size:A4;}}`;
+  const blob=new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Losung360 IBMS Report</title><style>${css}</style></head><body>${el.innerHTML}</body></html>`],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.html`;
   a.click();
 }
+
 </script>
 </body>
 </html>
