@@ -5375,41 +5375,50 @@ async function triggerAIReport() {
 }
 
 
-// ── Download colored PDF via browser print ────────────────────────────────────
-function downloadReport() {
+// ── Download colored PDF — direct download, no print dialog ──────────────────
+async function downloadReport() {
   const el = document.getElementById('ai-report-printable');
   if (!el) return;
-  // Resolve CSS variables to actual light-theme values so print window renders correctly
-  const colorMap = {
-    'var(--card-bg)':'#ffffff', 'var(--card-border)':'#e5e7eb',
-    'var(--text1)':'#111827',   'var(--text2)':'#374151',
-    'var(--text3)':'#9ca3af',   'var(--orange-tint)':'#fff7ed',
-  };
-  let html = el.outerHTML;
-  Object.entries(colorMap).forEach(([v,c]) => {
-    html = html.replaceAll(v, c);
+  const btn = document.querySelector('#ai-report-actions button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating PDF…'; }
+
+  // Clone report off-screen with hardcoded light-theme colors so the PDF
+  // always renders correctly regardless of dark/light mode, and we can
+  // control exactly what html2canvas sees (no Chart.js canvases in scope).
+  const clone = el.cloneNode(true);
+  clone.id = 'pdf-render-clone';
+  Object.assign(clone.style, {
+    position: 'fixed', left: '-9999px', top: '0',
+    width: '800px', zIndex: '-999', background: '#f3f4f6',
+    // Resolve CSS variables to actual light-theme values
+    '--card-bg':     '#ffffff', '--card-border': '#e5e7eb',
+    '--text1': '#111827', '--text2': '#374151', '--text3': '#9ca3af',
+    '--orange-tint': '#fff7ed',
   });
-  const w = window.open('', '_blank', 'width=920,height=800');
-  if (!w) { alert('Pop-up blocked — allow pop-ups for this site then try again.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="utf-8"><title>Losung360 IBMS Report</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; padding: 20px; font-family: 'Segoe UI', Arial, sans-serif; background: #f3f4f6; }
-      table { border-collapse: collapse; }
-      @media print {
-        body { margin: 0; padding: 0; background: #f3f4f6; }
-        @page { margin: 0.8cm; size: A4; }
-      }
-    </style>
-  </head><body>${html}
-  <script>
-    // Auto-trigger print dialog once styles are loaded
-    window.onload = function() {
-      setTimeout(function(){ window.print(); }, 600);
-    };
-  <\/script></body></html>`);
-  w.document.close();
+  document.body.appendChild(clone);
+
+  try {
+    await html2pdf().set({
+      margin:    [8, 8, 8, 8],
+      filename:  `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.pdf`,
+      image:     { type: 'jpeg', quality: 0.97 },
+      html2canvas: {
+        scale: 2, useCORS: true,
+        backgroundColor: '#f3f4f6',
+        logging: false,
+        // Skip ALL canvas elements — the Chart.js charts are what caused
+        // "canvas with width/height 0" errors. Our report has no canvases.
+        ignoreElements: node => node.tagName === 'CANVAS',
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }).from(clone).save();
+  } catch(e) {
+    alert('PDF generation failed: ' + e.message);
+  } finally {
+    const c = document.getElementById('pdf-render-clone');
+    if (c) c.remove();
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ Download PDF'; }
+  }
 }
 
 </script>
