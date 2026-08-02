@@ -2156,9 +2156,10 @@ function renderCXO() {
   // slot to a future date will have _schedDate >= today → they land in D (not
   // D_past), so the original null slot no longer appears in D_past either if
   // the sheet was updated. This gives the "true" retrospective null rate.
-  const _cxoToday = new Date(); _cxoToday.setHours(0,0,0,0);
-  const _cxoYest  = new Date(_cxoToday); _cxoYest.setDate(_cxoYest.getDate()-1); _cxoYest.setHours(23,59,59,999);
-  const D_past = D.filter(r => r._schedDate && r._schedDate <= _cxoYest);
+  const _cxoToday = new Date(); _cxoToday.setHours(23,59,59,999); // end of today
+  // Include today's scheduled appointments in all CXO counts regardless of
+  // fulfilment status — "Total Appointments" = everything scheduled up to now.
+  const D_past = D.filter(r => r._schedDate && r._schedDate <= _cxoToday);
 
   // 1. Total Appointments — scheduled up to yesterday (no future appts)
   s('cxo-units', fmtK(D_past.length));
@@ -5052,12 +5053,16 @@ function agg(rows) {
     topClients};
 }
 
-// slice() mirrors dashboard's applyFilters() exactly — null-_schedDate rows
-// pass through (same as dashboard), only out-of-range rows excluded.
+
+// slice() — mirrors CXO D_past: appointments with _schedDate up to end of today.
+// Future appointments (tomorrow+) are excluded from both the report and CXO counts.
 function slice(from, to) {
+  const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+  const effectiveTo = to < todayEnd ? to : todayEnd; // cap at end of today
   return ALL_DATA.filter(r => {
-    if (r._schedDate && r._schedDate < from) return false;
-    if (r._schedDate && r._schedDate > to)   return false;
+    if (!r._schedDate) return false;               // no scheduled date → exclude
+    if (r._schedDate < from) return false;         // before range → exclude
+    if (r._schedDate > effectiveTo) return false;  // future (tomorrow+) → exclude
     return true;
   });
 }
