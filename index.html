@@ -5001,14 +5001,15 @@ function getReportWindows() {
   const mon2 = new Date(sun2); mon2.setDate(sun2.getDate()-6); mon2.setHours(0,0,0,0);
   // MTD: 1st of sun1's month → sun1 vs 1st of prev month → same day prev month
   const mtdStart  = new Date(sun1.getFullYear(), sun1.getMonth(), 1, 0,0,0,0);
-  const mtdEnd    = new Date(sun1);
+  // MTD end = today (not last Sunday) so it matches dashboard 'This Month'
+  const mtdEnd    = new Date(); mtdEnd.setHours(23,59,59,999);
   const pmtdStart = new Date(sun1.getFullYear(), sun1.getMonth()-1, 1, 0,0,0,0);
-  const pmtdEnd   = new Date(sun1.getFullYear(), sun1.getMonth()-1, sun1.getDate(), 23,59,59,999);
+  const pmtdEnd   = new Date(now.getFullYear(), now.getMonth()-1, now.getDate(), 23,59,59,999);
   const D = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   return {
     week:  {start:mon1, end:sun1, label:`${D(mon1)} – ${D(sun1)}`},
     pweek: {start:mon2, end:sun2, label:`${D(mon2)} – ${D(sun2)}`},
-    mtd:   {start:mtdStart, end:mtdEnd, label:`${D(mtdStart)} – ${D(mtdEnd)}`},
+    mtd:   {start:mtdStart, end:mtdEnd, label:`${D(mtdStart)} – ${D(new Date())}`},
     pmtd:  {start:pmtdStart,end:pmtdEnd,label:`${D(pmtdStart)} – ${D(pmtdEnd)}`},
   };
 }
@@ -5051,7 +5052,15 @@ function agg(rows) {
     topClients};
 }
 
-function slice(from,to){ return ALL_DATA.filter(r=>r._schedDate&&r._schedDate>=from&&r._schedDate<=to); }
+// slice() mirrors dashboard's applyFilters() exactly — null-_schedDate rows
+// pass through (same as dashboard), only out-of-range rows excluded.
+function slice(from, to) {
+  return ALL_DATA.filter(r => {
+    if (r._schedDate && r._schedDate < from) return false;
+    if (r._schedDate && r._schedDate > to)   return false;
+    return true;
+  });
+}
 
 function compileReportData() {
   const w = getReportWindows();
