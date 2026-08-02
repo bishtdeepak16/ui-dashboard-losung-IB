@@ -5382,41 +5382,45 @@ async function downloadReport() {
   const btn = document.querySelector('#ai-report-actions button');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating PDF…'; }
 
-  // Clone report off-screen with hardcoded light-theme colors so the PDF
-  // always renders correctly regardless of dark/light mode, and we can
-  // control exactly what html2canvas sees (no Chart.js canvases in scope).
+  // Clone report off-screen with hardcoded light-theme colors
   const clone = el.cloneNode(true);
   clone.id = 'pdf-render-clone';
+  // Remove any stray canvas elements from the clone before html2canvas sees them
+  clone.querySelectorAll('canvas').forEach(c => c.remove());
   Object.assign(clone.style, {
-    position: 'fixed', left: '-9999px', top: '0',
-    width: '800px', zIndex: '-999', background: '#f3f4f6',
-    // Resolve CSS variables to actual light-theme values
-    '--card-bg':     '#ffffff', '--card-border': '#e5e7eb',
+    position: 'absolute', left: '-99999px', top: '0',
+    width: '800px', zIndex: '-1', background: '#f3f4f6',
+    '--card-bg': '#ffffff', '--card-border': '#e5e7eb',
     '--text1': '#111827', '--text2': '#374151', '--text3': '#9ca3af',
     '--orange-tint': '#fff7ed',
   });
   document.body.appendChild(clone);
+  await new Promise(r => setTimeout(r, 150)); // let clone render
 
   try {
     await html2pdf().set({
-      margin:    [8, 8, 8, 8],
-      filename:  `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.pdf`,
-      image:     { type: 'jpeg', quality: 0.97 },
+      margin:   [8, 8, 8, 8],
+      filename: `Losung360_IBMS_Report_${new Date().toISOString().slice(0,10)}.pdf`,
+      image:    { type: 'jpeg', quality: 0.97 },
       html2canvas: {
         scale: 2, useCORS: true,
-        backgroundColor: '#f3f4f6',
-        logging: false,
-        // Skip ALL canvas elements — the Chart.js charts are what caused
-        // "canvas with width/height 0" errors. Our report has no canvases.
-        ignoreElements: node => node.tagName === 'CANVAS',
+        backgroundColor: '#f3f4f6', logging: false,
+        // onclone runs inside html2canvas just before it renders —
+        // we patch every zero-size canvas to 1×1 to prevent the
+        // "createPattern: canvas with width/height 0" crash.
+        onclone: (doc) => {
+          doc.querySelectorAll('canvas').forEach(c => {
+            if (!c.width  || c.width  === 0) c.width  = 1;
+            if (!c.height || c.height === 0) c.height = 1;
+          });
+        },
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }).from(clone).save();
   } catch(e) {
     alert('PDF generation failed: ' + e.message);
   } finally {
-    const c = document.getElementById('pdf-render-clone');
-    if (c) c.remove();
+    document.getElementById('pdf-render-clone')?.remove();
     if (btn) { btn.disabled = false; btn.textContent = '⬇ Download PDF'; }
   }
 }
