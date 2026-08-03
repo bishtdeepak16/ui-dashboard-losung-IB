@@ -5106,11 +5106,18 @@ clients: ${cls(m,pm)}`;
 
   return `Losung360 3PL India inbound ops analyst. Write 2-section report. Use exact numbers from DATA only.
 
+IMPORTANT WRITING RULES:
+- NEVER write "decreased by X to Y" or "increased by X to Y" — this reads as if X is the starting value.
+- ALWAYS write "went from Y_prev to Y_curr (a drop/rise of X)" or "fell/rose from Y_prev to Y_curr by X".
+- Example WRONG: "appointments decreased by 15 to 149"
+- Example CORRECT: "appointments fell from 164 to 149, a decrease of 15"
+- Apply this rule in ALL sentences including summaries, highlights, and concerns.
+
 DATA:
 ${data}
 
 Return ONLY valid compact JSON (no markdown):
-{"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}pp","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}pp","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}pp","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}pp","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}pp","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}pp","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"D+S Rate","curr":"${S(m.dsPct,'%')}","prev":"${S(pm.dsPct,'%')}","delta":"${DIFF(m.dsPct,pm.dsPct,'%')}pp","dir":"${(m.dsPct||0)<=(pm.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}pp","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["specific action 1","action 2","action 3"]}`;
+{"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}pp","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}pp","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"Damage+Short Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}pp","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}pp","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}pp","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}pp","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"Damage+Short Rate","curr":"${S(m.dsPct,'%')}","prev":"${S(pm.dsPct,'%')}","delta":"${DIFF(m.dsPct,pm.dsPct,'%')}pp","dir":"${(m.dsPct||0)<=(pm.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}pp","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["specific action 1","action 2","action 3"]}`;
 }
 
 // ── AI call — via Cloudflare Worker proxy (key stays in Cloudflare, never here) ──
@@ -5184,7 +5191,7 @@ function renderReport(rpt, d) {
     const c = rgb || '99,102,241';
     const kpis=[
       ['Appts',F(m.n)],['Gate-Ins',F(m.gi)],['Fulfilment',P(m.fulfPct)],
-      ['Same-Day',P(m.sdPct)],['Good Units',F(m.gu)],['D+S Rate',P(m.dsPct)],
+      ['Same-Day',P(m.sdPct)],['Good Units',F(m.gu)],['Damage+Short',P(m.dsPct)],
       ['Null Rate',P(m.nullPct)],['Median TAT',m.medTAT?m.medTAT+'h':'—']
     ];
     return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
@@ -5197,43 +5204,47 @@ function renderReport(rpt, d) {
 
   // Client table
   function clientTable(curr, prev, notes) {
-    const maxGU = Math.max(...curr.map(c=>c.gu),1);
+    // helper: conditional delta chip identical to Good Units column
+    function deltaChip(curr, prevVal, higherIsBetter=true) {
+      if (prevVal == null || prevVal === 0) return '';
+      const pct = ((curr - prevVal) / Math.abs(prevVal) * 100).toFixed(0);
+      const isUp = +pct >= 0;
+      const good = higherIsBetter ? isUp : !isUp;
+      const col  = good ? '#16a34a' : '#dc2626';
+      const icon = isUp ? '▲' : '▼';
+      return `<span style="font-size:9px;font-weight:700;color:${col};margin-left:5px;">${icon}${Math.abs(pct)}%</span>`;
+    }
     return `<table style="width:100%;border-collapse:collapse;font-size:11.5px;">
       <thead><tr style="border-bottom:2px solid var(--card-border);">
-        <th style="text-align:left;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Rank · Client</th>
-        <th style="padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Volume</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Appts</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Good Units</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Prev GU</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Fulfil%</th>
-        <th style="text-align:right;padding:8px 8px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">SD%</th>
-        <th style="text-align:right;padding:8px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">D+S%</th>
+        <th style="text-align:left;padding:10px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;width:28%;">Rank · Client</th>
+        <th style="text-align:right;padding:10px 14px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Appts</th>
+        <th style="text-align:right;padding:10px 14px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Good Units</th>
+        <th style="text-align:right;padding:10px 14px;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Fulfil%</th>
+        <th style="text-align:right;padding:10px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;">Same-Day%</th>
       </tr></thead>
       <tbody>${curr.map((c,i)=>{
         const pc = prev.find(p=>p.cl===c.cl);
-        const guDelta = pc&&pc.gu>0?((c.gu-pc.gu)/pc.gu*100).toFixed(0):null;
-        const guDeltaHtml = guDelta!=null?`<span style="font-size:9px;font-weight:700;color:${+guDelta>=0?'#16a34a':'#dc2626'};margin-left:4px;">${+guDelta>=0?'▲':'▼'}${Math.abs(guDelta)}%</span>`:'';
         const note = (notes||[]).find(x=>x.client===c.cl);
-        const dsColor = c.dsPct!=null&&c.dsPct>2?'#dc2626':'var(--text1)';
         const sdColor = c.sdPct!=null&&c.sdPct<70?'#dc2626':'#16a34a';
-        const barW = (c.gu/maxGU*100).toFixed(1);
+        const fulfColor = c.fulfPct!=null&&c.fulfPct<80?'#dc2626':'var(--text1)';
         const isPriority = CLIENT_PRIORITY_ORDER.includes(c.cl);
         return `<tr style="border-bottom:1px solid var(--card-border);${isPriority?'background:rgba(99,102,241,.02);':''}">
-          <td style="padding:10px 0;">
+          <td style="padding:12px 0;">
             <div style="font-weight:800;font-size:12px;color:var(--text1);">${isPriority?'⭐':' #'+i} ${c.cl}</div>
             ${note?`<div style="font-size:10px;color:#6366f1;margin-top:2px;">${note.note}</div>`:''}
           </td>
-          <td style="padding:10px 8px;min-width:70px;">
-            <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden;">
-              <div style="height:100%;width:${barW}%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:3px;"></div>
-            </div>
+          <td style="text-align:right;padding:12px 14px;font-weight:700;color:#6366f1;">
+            ${c.n}${deltaChip(c.n, pc?.n, true)}
           </td>
-          <td style="text-align:right;padding:10px 8px;font-weight:700;color:#6366f1;">${c.n}</td>
-          <td style="text-align:right;padding:10px 8px;font-weight:700;">${F(c.gu)}${guDeltaHtml}</td>
-          <td style="text-align:right;padding:10px 8px;color:var(--text3);">${pc?F(pc.gu):'—'}</td>
-          <td style="text-align:right;padding:10px 8px;">${P(c.fulfPct)}</td>
-          <td style="text-align:right;padding:10px 8px;color:${sdColor};font-weight:700;">${P(c.sdPct)}</td>
-          <td style="text-align:right;padding:10px 0;color:${dsColor};font-weight:700;">${P(c.dsPct)}</td>
+          <td style="text-align:right;padding:12px 14px;font-weight:700;">
+            ${F(c.gu)}${deltaChip(c.gu, pc?.gu, true)}
+          </td>
+          <td style="text-align:right;padding:12px 14px;font-weight:700;color:${fulfColor};">
+            ${P(c.fulfPct)}${pc?.fulfPct!=null?deltaChip(c.fulfPct, pc.fulfPct, true):''}
+          </td>
+          <td style="text-align:right;padding:12px 0;font-weight:700;color:${sdColor};">
+            ${P(c.sdPct)}${pc?.sdPct!=null?deltaChip(c.sdPct, pc.sdPct, true):''}
+          </td>
         </tr>`;
       }).join('')}
       </tbody></table>`;
