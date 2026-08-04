@@ -1149,6 +1149,9 @@ const USERS_SHEET_ID = '1Fdp5T5WMZNv6Ggwqr4ulVuIgteu0b_Q8rf77pF4d32s';
 const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudflare-worker.js)
 // ↓ Paste your Cloudflare Worker URL here after deploying it (see cloudflare-worker.js)
 const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
+// ↓ Paste your Apps Script Web App URL here after deploying email-webapp.gs
+// Deploy → New Deployment → Web App → Execute as: Me, Who has access: Anyone
+const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxtgRUuJhqJvQLwPR9ZcUZBwutHU3af-wZ7aq1rcrxZhNf0uKi7jloDBbMU-u4rnG-m_g/exec';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -5151,7 +5154,12 @@ async function callAI(prompt) {
 function renderReport(rpt, d) {
   const content = document.getElementById('ai-report-content');
   document.getElementById('ai-report-actions').innerHTML =
-    `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download PDF</button>`;
+    `<button class="ai-rpt-btn download" onclick="downloadReport()">⬇ Download PDF</button>` +
+    `<button class="ai-rpt-btn" onclick="pushReportEmail()" id="email-send-btn"
+      style="background:#6366f1;color:#fff;border:none;margin-left:8px;cursor:pointer;
+             padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;">
+      📧 Send Email
+    </button>`;
 
   const F = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n==null?'—':String(Math.round(n));
   const P = v => v==null?'—':v+'%';
@@ -5405,6 +5413,57 @@ async function triggerAIReport() {
   }
 }
 
+
+// ── Push report to Apps Script Web App → email send ──────────────────────────
+// Sends the already-computed {report, data} to the Apps Script Web App.
+// The Web App stores it as the authoritative payload and sends the email.
+// This guarantees the email contains EXACTLY the same numbers as the dashboard.
+async function pushReportEmail() {
+  const btn = document.getElementById('email-send-btn');
+  if (!btn) return;
+  if (APPS_SCRIPT_WEBAPP_URL === 'YOUR-APPS-SCRIPT-WEBAPP-URL') {
+    alert('⚙️ One-time setup needed:\n\n' +
+          '1. Deploy email-webapp.gs to Google Apps Script as a Web App\n' +
+          '   (Execute as: Me | Who has access: Anyone)\n' +
+          '2. Copy the Web App URL\n' +
+          '3. Paste it as APPS_SCRIPT_WEBAPP_URL in index.html\n\n' +
+          'See the setup instructions in email-webapp.gs.');
+    return;
+  }
+  if (!window._lastAIReport) {
+    alert('No report generated yet — click "⚡ Generate Report" first.');
+    return;
+  }
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Sending…';
+  try {
+    // Serialise data — Date objects become strings during JSON.stringify,
+    // which is fine since the Web App only needs the pre-computed numbers
+    // and label strings, not live Date objects.
+    const payload = {
+      action: 'store_and_send',
+      report: window._lastAIReport.report,
+      data:   window._lastAIReport.data,
+    };
+    const resp = await fetch(APPS_SCRIPT_WEBAPP_URL, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify(payload),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (json.ok) {
+      btn.innerHTML = '✅ Sent!';
+      setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
+    } else {
+      throw new Error(json.error || 'Web App returned error');
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    alert('Email send failed: ' + e.message);
+  }
+}
 
 // ── Download colored PDF ──────────────────────────────────────────────────────
 // html2canvas crashes on CSS gradients (internal zero-dimension canvas bug).
