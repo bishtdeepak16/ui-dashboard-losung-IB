@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -1151,7 +1153,7 @@ const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudfl
 const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
 // ↓ Paste your Apps Script Web App URL here after deploying email-webapp.gs
 // Deploy → New Deployment → Web App → Execute as: Me, Who has access: Anyone
-const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxtgRUuJhqJvQLwPR9ZcUZBwutHU3af-wZ7aq1rcrxZhNf0uKi7jloDBbMU-u4rnG-m_g/exec';
+const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzzW2yCPjq1qKy8QqNHSwlL_oLM64JEzcisEGrlQRdGzlIx1zQNpMhtf60N03oJm1-v5g/exec';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -5438,26 +5440,30 @@ async function pushReportEmail() {
   btn.disabled = true;
   btn.innerHTML = '⏳ Sending…';
   try {
-    // Serialise data — Date objects become strings during JSON.stringify,
-    // which is fine since the Web App only needs the pre-computed numbers
-    // and label strings, not live Date objects.
-    const payload = {
+    // Apps Script Web Apps block browser fetch() with Content-Type: application/json
+    // due to CORS preflight. Fix: send as application/x-www-form-urlencoded — this
+    // is a "simple request" that browsers send without a preflight, so it reaches
+    // doPost() successfully. We embed the JSON as a 'payload' form field.
+    const payloadJSON = JSON.stringify({
       action: 'store_and_send',
       report: window._lastAIReport.report,
       data:   window._lastAIReport.data,
-    };
-    const resp = await fetch(APPS_SCRIPT_WEBAPP_URL, {
-      method:  'POST',
-      headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify(payload),
     });
-    const json = await resp.json().catch(() => ({}));
-    if (json.ok) {
-      btn.innerHTML = '✅ Sent!';
-      setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
-    } else {
-      throw new Error(json.error || 'Web App returned error');
-    }
+
+    // Use no-cors so the browser doesn't block on the missing CORS headers in
+    // the response. We can't read the response body in no-cors mode, so we
+    // optimistically show ✅ and let Apps Script handle errors server-side
+    // (check Apps Script execution log if email doesn't arrive).
+    await fetch(APPS_SCRIPT_WEBAPP_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body:    'payload=' + encodeURIComponent(payloadJSON),
+    });
+
+    // no-cors gives opaque response — assume success, Apps Script log will show errors
+    btn.innerHTML = '✅ Sent!';
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
   } catch(e) {
     btn.disabled = false;
     btn.innerHTML = orig;
