@@ -1151,7 +1151,7 @@ const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudfl
 const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
 // ↓ Paste your Apps Script Web App URL here after deploying email-webapp.gs
 // Deploy → New Deployment → Web App → Execute as: Me, Who has access: Anyone
-const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyzFAX5-eZrHixUalpfhZgAbCpiEYfMDVSTorjLWsPVBzA2Ax82i1Qu-cGWO2bbFGgpZA/exec';
+const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx01N-ONsuNLopCj0zLAKJtRNXKRUl0dac7qx9DQzVjhADuZ7r8DuhazbYCiurD7hzWlA/exec';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -5005,15 +5005,16 @@ function getReportWindows() {
   const mon2 = new Date(sun2); mon2.setDate(sun2.getDate()-6); mon2.setHours(0,0,0,0);
   // MTD: 1st of sun1's month → sun1 vs 1st of prev month → same day prev month
   const mtdStart  = new Date(sun1.getFullYear(), sun1.getMonth(), 1, 0,0,0,0);
-  // MTD end = today (not last Sunday) so it matches dashboard 'This Month'
-  const mtdEnd    = new Date(); mtdEnd.setHours(23,59,59,999);
+  // MTD end = yesterday (not today) — today's data is incomplete intraday
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1); yesterday.setHours(23,59,59,999);
+  const mtdEnd    = yesterday;
   const pmtdStart = new Date(sun1.getFullYear(), sun1.getMonth()-1, 1, 0,0,0,0);
-  const pmtdEnd   = new Date(now.getFullYear(), now.getMonth()-1, now.getDate(), 23,59,59,999);
+  const pmtdEnd   = new Date(now.getFullYear(), now.getMonth()-1, now.getDate()-1, 23,59,59,999);
   const D = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   return {
     week:  {start:mon1, end:sun1, label:`${D(mon1)} – ${D(sun1)}`},
     pweek: {start:mon2, end:sun2, label:`${D(mon2)} – ${D(sun2)}`},
-    mtd:   {start:mtdStart, end:mtdEnd, label:`${D(mtdStart)} – ${D(new Date())}`},
+    mtd:   {start:mtdStart, end:mtdEnd, label:`${D(mtdStart)} – ${D(yesterday)}`},
     pmtd:  {start:pmtdStart,end:pmtdEnd,label:`${D(pmtdStart)} – ${D(pmtdEnd)}`},
   };
 }
@@ -5241,7 +5242,7 @@ function renderReport(rpt, d) {
     const tdPrev  = 'text-align:center;padding:12px 8px;font-weight:500;color:var(--text3);white-space:nowrap;font-size:11px;';
     return `<table style="width:100%;border-collapse:collapse;font-size:11.5px;">
       <thead><tr style="border-bottom:2px solid var(--card-border);">
-        <th style="text-align:left;padding:10px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;width:20%;">Rank · Client</th>
+        <th style="text-align:left;padding:10px 0;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;width:20%;">Client</th>
         <th style="${thStyle}">Appts</th>
         <th style="${thStyle}color:#bbb;">Prev</th>
         <th style="${thStyle}">Good Units</th>
@@ -5257,8 +5258,7 @@ function renderReport(rpt, d) {
         const isPriority = CLIENT_PRIORITY_ORDER.includes(c.cl);
         return `<tr style="border-bottom:1px solid var(--card-border);${isPriority?'background:rgba(249,115,22,.03);':''}">
           <td style="padding:12px 0;">
-            <div style="font-weight:800;font-size:12px;color:var(--text1);">${isPriority?'⭐':' #'+i} ${c.cl}</div>
-            ${note?`<div style="font-size:10px;color:#f97316;margin-top:2px;">${note.note}</div>`:''}
+            <div style="font-weight:800;font-size:12px;color:var(--text1);">${isPriority?'⭐ ':' '}${c.cl}</div>
           </td>
           <td style="${tdStyle}color:#f97316;">
             ${c.n}${relChip(c.n, pc?.n, true)}
