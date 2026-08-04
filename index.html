@@ -1151,7 +1151,7 @@ const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudfl
 const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
 // ↓ Paste your Apps Script Web App URL here after deploying email-webapp.gs
 // Deploy → New Deployment → Web App → Execute as: Me, Who has access: Anyone
-const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx01N-ONsuNLopCj0zLAKJtRNXKRUl0dac7qx9DQzVjhADuZ7r8DuhazbYCiurD7hzWlA/exec';
+const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzkw6RKNZgxg9rXWu2x99c50S_0Ot3xSGt8OnDyze2r_44GeVtOPTCMs8trcFbJOWhg/exec';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -5120,13 +5120,14 @@ IMPORTANT WRITING RULES:
 - NEVER mention Good Units numbers in the summary sentences — the numbers are too large to be meaningful highlights.
 - NEVER write "percentage points" or "pp" anywhere — write "%" only. Example: "a decrease of 6.4%" NOT "6.4 percentage points" or "6.4pp".
 - For highlights and concerns: ONLY include items with meaningful change — skip anything below 5% for rate metrics or below 10 appointment difference. Focus on the 2 most significant positives and 2 most significant negatives only.
+- RECOMMENDED ACTIONS RULE: actions must ONLY address rate/quality KPIs — Fulfilment %, Same-Day %, Median TAT, Null Rate, Damage+Short Rate. NEVER write an action about total appointment count going up or down, or about Good Units quantity going up or down — these move purely with client mix and order volume, not operational performance, so they are not actionable and must never appear in "actions". If fewer than 3 rate/quality KPIs show a meaningful (>5%) move, return fewer than 3 actions rather than inventing one about appointment counts or Good Units — do not pad the list.
 - Apply all rules in summaries, highlights, concerns, and client notes.
 
 DATA:
 ${data}
 
 Return ONLY valid compact JSON (no markdown):
-{"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}%","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}%","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"Damage+Short Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}%","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}%","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"wowClientNotes":[{"client":"name","note":"one specific WoW observation"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}%","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}%","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}%","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"mtdClientNotes":[{"client":"name","note":"one specific MTD observation"}],"actions":["action tied to the single most impacted KPI with specific number e.g. Same-day clearance at X% — coordinate dock allocation to prioritise same-day exits","action tied to 2nd most impacted KPI","action tied to 3rd impacted KPI or a client-specific operational follow-up"]}`;
+{"wowSummary":"2 sentences WoW with numbers","wowHighlights":["specific +ve with numbers","2nd"],"wowConcerns":["specific -ve with numbers","2nd"],"wowMetrics":[{"name":"Total Appointments","curr":"${w.n}","prev":"${pw.n}","delta":"${DIFF(w.n,pw.n)}","dir":"${w.n>=pw.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${w.gi}","prev":"${pw.gi}","delta":"${DIFF(w.gi,pw.gi)}","dir":"${w.gi>=pw.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(w.fulfPct,'%')}","prev":"${S(pw.fulfPct,'%')}","delta":"${DIFF(w.fulfPct,pw.fulfPct,'%')}%","dir":"${(w.fulfPct||0)>=(pw.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(w.sdPct,'%')}","prev":"${S(pw.sdPct,'%')}","delta":"${DIFF(w.sdPct,pw.sdPct,'%')}%","dir":"${(w.sdPct||0)>=(pw.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${w.gu}","prev":"${pw.gu}","delta":"${DIFF(w.gu,pw.gu)}","dir":"${w.gu>=pw.gu?'up':'down'}"},{"name":"Damage+Short Rate","curr":"${S(w.dsPct,'%')}","prev":"${S(pw.dsPct,'%')}","delta":"${DIFF(w.dsPct,pw.dsPct,'%')}%","dir":"${(w.dsPct||0)<=(pw.dsPct||0)?'up':'down'}"},{"name":"Null Rate","curr":"${S(w.nullPct,'%')}","prev":"${S(pw.nullPct,'%')}","delta":"${DIFF(w.nullPct,pw.nullPct,'%')}%","dir":"${(w.nullPct||0)<=(pw.nullPct||0)?'up':'down'}"},{"name":"Median TAT","curr":"${S(w.medTAT,'h')}","prev":"${S(pw.medTAT,'h')}","delta":"${DIFF(w.medTAT,pw.medTAT,'h')}h","dir":"${(w.medTAT||0)<=(pw.medTAT||0)?'up':'down'}"}],"mtdSummary":"2 sentences MTD with numbers","mtdHighlights":["specific +ve with numbers","2nd"],"mtdConcerns":["specific -ve with numbers","2nd"],"mtdMetrics":[{"name":"Total Appointments","curr":"${m.n}","prev":"${pm.n}","delta":"${DIFF(m.n,pm.n)}","dir":"${m.n>=pm.n?'up':'down'}"},{"name":"Gate-Ins","curr":"${m.gi}","prev":"${pm.gi}","delta":"${DIFF(m.gi,pm.gi)}","dir":"${m.gi>=pm.gi?'up':'down'}"},{"name":"Fulfilment %","curr":"${S(m.fulfPct,'%')}","prev":"${S(pm.fulfPct,'%')}","delta":"${DIFF(m.fulfPct,pm.fulfPct,'%')}%","dir":"${(m.fulfPct||0)>=(pm.fulfPct||0)?'up':'down'}"},{"name":"Same-Day %","curr":"${S(m.sdPct,'%')}","prev":"${S(pm.sdPct,'%')}","delta":"${DIFF(m.sdPct,pm.sdPct,'%')}%","dir":"${(m.sdPct||0)>=(pm.sdPct||0)?'up':'down'}"},{"name":"Good Units","curr":"${m.gu}","prev":"${pm.gu}","delta":"${DIFF(m.gu,pm.gu)}","dir":"${m.gu>=pm.gu?'up':'down'}"},{"name":"Null Rate","curr":"${S(m.nullPct,'%')}","prev":"${S(pm.nullPct,'%')}","delta":"${DIFF(m.nullPct,pm.nullPct,'%')}%","dir":"${(m.nullPct||0)<=(pm.nullPct||0)?'up':'down'}"}],"actions":["action tied to the single most impacted RATE/QUALITY KPI only (Fulfilment %, Same-Day %, Median TAT, Null Rate, or Damage+Short Rate) with specific number e.g. Same-day clearance at X% — coordinate dock allocation to prioritise same-day exits","action tied to 2nd most impacted rate/quality KPI, or a client-specific operational follow-up tied to a rate/quality issue — omit if fewer than 2 qualify","3rd action only if a 3rd rate/quality KPI genuinely qualifies — omit entirely rather than referencing appointment count or Good Units changes"]}`;
 }
 
 // ── AI call — via Cloudflare Worker proxy (key stays in Cloudflare, never here) ──
@@ -5217,7 +5218,7 @@ function renderReport(rpt, d) {
   }
 
   // Client table
-  function clientTable(curr, prev, notes) {
+  function clientTable(curr, prev) {
     // Relative % chip — for count-based columns (Appts, Good Units)
     function relChip(curr, prevVal, higherIsBetter=true) {
       if (prevVal == null || prevVal === 0 || curr == null) return '';
@@ -5254,7 +5255,6 @@ function renderReport(rpt, d) {
       </tr></thead>
       <tbody>${curr.map((c,i)=>{
         const pc = prev.find(p=>p.cl===c.cl);
-        const note = (notes||[]).find(x=>x.client===c.cl);
         const isPriority = CLIENT_PRIORITY_ORDER.includes(c.cl);
         return `<tr style="border-bottom:1px solid var(--card-border);${isPriority?'background:rgba(249,115,22,.03);':''}">
           <td style="padding:12px 0;">
@@ -5309,7 +5309,7 @@ function renderReport(rpt, d) {
       <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:12px;display:flex;gap:24px;flex-wrap:wrap;">
         <span>📅 Week: ${d.windows.week.label}</span>
         <span>📆 MTD: ${d.windows.mtd.label}</span>
-        <span>🤖 Generated ${d.generatedAt}</span>
+        <span>🏢 Central Planning & Excellence</span>
       </div>
     </div>
 
@@ -5346,7 +5346,7 @@ function renderReport(rpt, d) {
 
       <!-- Client Table -->
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CLIENT PERFORMANCE — TOP ${Math.min(d.week.topClients.length,15)} BY VOLUME</div>
-      ${clientTable(d.week.topClients, d.pweek.topClients, rpt.wowClientNotes)}
+      ${clientTable(d.week.topClients, d.pweek.topClients)}
     </div>
 
     <!-- ═══ PAGE 2 — MTD vs MTD ═══ -->
@@ -5382,7 +5382,7 @@ function renderReport(rpt, d) {
 
       <!-- MTD Client Table -->
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;">CLIENT MTD PERFORMANCE — TOP ${Math.min(d.mtd.topClients.length,15)} BY VOLUME</div>
-      ${clientTable(d.mtd.topClients, d.pmtd.topClients, rpt.mtdClientNotes)}
+      ${clientTable(d.mtd.topClients, d.pmtd.topClients)}
     </div>
 
     <!-- ═══ ACTIONS ═══ -->
