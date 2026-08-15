@@ -1151,7 +1151,7 @@ const GROQ_KEY = ''; // not used — key lives in Cloudflare Worker (see cloudfl
 const GROQ_PROXY = 'https://round-cloud-db1a.deepak-bisht.workers.dev';
 // ↓ Paste your Apps Script Web App URL here after deploying email-webapp.gs
 // Deploy → New Deployment → Web App → Execute as: Me, Who has access: Anyone
-const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxbjWWXsXE_6r30F8YzjlA2pmEtgMskdkk6XjvAuOfpGxVUneryILW0Q8op5xIc1_QixA/exec';
+const APPS_SCRIPT_WEBAPP_URL = 'YOUR-APPS-SCRIPT-WEBAPP-URL';
 const USERS_GID = '1029277024';
 const MASTER_EMAIL = 'planning@losung360.com';
 const SHEET_GID = '1596417357'; // Appointment Table tab GID from URL
@@ -5140,7 +5140,7 @@ async function callAI(prompt) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3, max_tokens: 1500,
       response_format: { type: 'json_object' }
