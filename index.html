@@ -2607,7 +2607,7 @@ function renderCXOClientVol(D) {
       data: { labels: fcs, datasets: [{ data: unitsByFC, backgroundColor: fcs.map(fc=>FC_COLORS[fc]+'cc'), borderRadius: 5 }] },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0, top: 33 } },
+        animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0, top: 0 } },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -2654,7 +2654,7 @@ function renderCXOClientVol(D) {
       data:{labels,datasets:[{data:appts,backgroundColor:top10.map((_,i)=>CLIENT_COLORS[i%CLIENT_COLORS.length]+'cc'),borderRadius:5}]},
       options:{
         indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},
-        layout:{padding:{left:0,bottom:0,top:33}},
+        layout:{padding:{left:0,bottom:0,top:0}},
         plugins:{
           legend:{display:false},
           tooltip:{
