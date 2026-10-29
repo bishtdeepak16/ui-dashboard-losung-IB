@@ -2601,7 +2601,7 @@ function renderCXOClientVol(D) {
     if (!canvas) return;
     const tc = textColor(), gc = gridColor();
     const maxLabelLen = fcs.reduce((m,l)=>(l.length>m?l.length:m),0);
-    const leftPad = Math.min(Math.max(maxLabelLen*7.5,100),220);
+    const leftPad = Math.min(Math.max(maxLabelLen*7.5,54),220);
     charts['cxo-client-vol'] = new Chart(canvas.getContext('2d'), {
       type: 'bar',
       data: { labels: fcs, datasets: [{ data: unitsByFC, backgroundColor: fcs.map(fc=>FC_COLORS[fc]+'cc'), borderRadius: 5 }] },
@@ -2734,7 +2734,7 @@ function renderCXODiscipline(D) {
       },
       scales:{
         x:{stacked:true,grid:{display:false},ticks:{color:tc,font:{size:10},maxRotation:0,autoSkip:false},border:{color:gc}},
-        y:{stacked:true,grid:{color:gc},afterFit(axis){axis.width=100;},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},max:100,min:0,border:{color:gc}}
+        y:{stacked:true,grid:{color:gc},afterFit(axis){axis.width=40;},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},max:100,min:0,border:{color:gc}}
       }
     }
   });
