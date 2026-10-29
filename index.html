@@ -193,7 +193,7 @@ body{font-family:'Inter',sans-serif;background:#F8F9FC;color:#111827;min-height:
 .theme-btn:hover:not(.active){color:var(--orange);}
 
 /* ══ PAGE CONTENT ══ */
-.page-content{padding:24px;flex:1;transform:scale(0.9);transform-origin:top left;width:111.112%;}
+.page-content{padding:24px;flex:1;}
 
 /* ══ SLICER & FILTERS ══ */
 .slicer-bar{
@@ -4970,28 +4970,9 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// ── Visual density scale (90% look) without breaking Chart.js hover ──
-// .page-content is scaled via CSS transform (not CSS zoom — zoom breaks
-// Chart.js canvas hit-testing). transform:scale() doesn't shrink the
-// element's reserved layout height, so we compensate with a negative
-// bottom margin computed from its real (unscaled) height, kept in sync
-// via ResizeObserver as filters/pages/charts change the content height.
-(function(){
-  const SCALE = 0.9;
-  function compensate(){
-    const pc = document.querySelector('.page-content');
-    if (!pc) return;
-    pc.style.marginBottom = (-(pc.scrollHeight * (1 - SCALE))) + 'px';
-  }
-  const pc = document.querySelector('.page-content');
-  if (pc && 'ResizeObserver' in window) {
-    new ResizeObserver(compensate).observe(pc);
-  }
-  window.addEventListener('load', compensate);
-  window.addEventListener('resize', compensate);
-  setTimeout(compensate, 300);
-  setTimeout(compensate, 1500);
-})();
+// (90%-zoom-look experiment removed — it caused a resize feedback loop
+// between this ResizeObserver and Chart.js's own canvas resize observers,
+// which broke chart rendering. Page now renders at normal 100% scale.)
 </script>
 
 <!-- ═══ AI REPORT MODAL ═══ -->
