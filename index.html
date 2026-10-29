@@ -963,12 +963,9 @@ select:hover,select:focus{border-color:var(--orange);}
         <div class="kc blue"><div class="kc-icon-box">📊</div><div class="kc-body"><div class="kc-lbl">Advance Appts %</div><div class="kc-val" id="cxo-advance">—</div><div class="kc-sub" id="cxo-advance-sub">vs Immediate</div></div></div>
         <div class="kc red"><div class="kc-icon-box">⚠️</div><div class="kc-body"><div class="kc-lbl">Null Rate</div><div class="kc-val" id="cxo-null">—</div><div class="kc-sub" id="cxo-null-sub">Wasted planning slots</div></div></div>
       </div>
+      <div class="cc orange" style="margin-bottom:var(--gap);"><div class="cc-row"><div><div class="cc-title">📈 Monthly Volume Trend</div><div class="cc-sub">Good Units (bars) + Appointments (line)</div></div></div><div class="rh-lg"><canvas id="cxo-trend"></canvas></div></div>
       <div class="two-col">
-        <div class="cc orange"><div class="cc-row"><div><div class="cc-title">📈 Monthly Volume Trend</div><div class="cc-sub">Good Units (bars) + Appointments (line)</div></div></div><div class="rh"><canvas id="cxo-trend"></canvas></div></div>
-        <div class="cc teal"><div class="cc-row"><div><div class="cc-title">🏭 Volume by FC (Good Units)</div><div class="cc-sub">Good Units per Fulfilment Centre</div></div></div><div class="rh-sm"><canvas id="cxo-fc-vol"></canvas></div></div>
-      </div>
-      <div class="two-col">
-        <div class="cc blue"><div class="cc-row"><div><div class="cc-title">👥 Top Clients by Volume (Good Units)</div><div class="cc-sub">Total Appointments — top 10</div><div class="cc-info-btn" id="info-top-clients" title="All Clients Info">ℹ</div></div></div><div class="rh-lg"><canvas id="cxo-client-vol"></canvas></div></div>
+        <div class="cc blue"><div class="cc-row"><div><div class="cc-title">👥 Top FC &amp; Clients by Volume (Good Units)</div><div class="cc-sub" id="cxo-clientvol-sub">Total Appointments — top 10</div><div class="cc-info-btn" id="info-top-clients" title="All Clients Info">ℹ</div></div></div><div class="rh-lg"><canvas id="cxo-client-vol"></canvas></div></div>
         <div class="cc red"><div class="cc-row"><div><div class="cc-title">🎯 Appt Classification by Client</div><div class="cc-info-btn" id="info-appt-class-client" title="All Clients Info">ℹ</div><div class="cc-sub">Advance · Immediate · Null · Imm+Null % — Top 5 by volume</div></div></div><div class="rh"><canvas id="cxo-discipline-fc"></canvas></div></div>
       </div>
       <div class="two-col">
@@ -2241,7 +2238,6 @@ function renderCXO() {
 
   // Charts
   renderCXOTrend(D);
-  renderCXOFCVol(D);
   renderCXOClientVol(D);
   renderCXODiscipline(D);
   renderCXODSByFC(D);
@@ -2442,11 +2438,28 @@ function renderCXOTrend(D) {
   const monthLabels = months.map(m => { const[yr,mo]=m.split('-'); return MN[+mo-1]+'-'+yr; });
 
   if (window._cxoTrendMetric === 'volume') {
-    // Default combo bar+line
+    // Default combo bar+line — premium gradient bars for Good Units
+    const _trendCanvas = document.getElementById('cxo-trend');
+    const _trendCtx = _trendCanvas?.getContext('2d');
+    const _trendH = _trendCanvas?.parentElement?.offsetHeight || 320;
+    let barFill = '#f97316';
+    let barHoverFill = '#fb923c';
+    if (_trendCtx) {
+      const g = _trendCtx.createLinearGradient(0, 0, 0, _trendH);
+      g.addColorStop(0,    '#fdba74');
+      g.addColorStop(0.5,  '#fb923c');
+      g.addColorStop(1,    '#ea580c');
+      barFill = g;
+      const gh = _trendCtx.createLinearGradient(0, 0, 0, _trendH);
+      gh.addColorStop(0,   '#fed7aa');
+      gh.addColorStop(0.5, '#fdba74');
+      gh.addColorStop(1,   '#f97316');
+      barHoverFill = gh;
+    }
     renderComboChartCJS('cxo-trend', monthLabels,
-      [{label:'Good Units',data:months.map(m=>byMonth[m].units),backgroundColor:'rgba(249,115,22,.6)',borderColor:'#f97316',borderWidth:1,yAxisID:'y'}],
-      [{label:'Appts',data:months.map(m=>byMonth[m].appts),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2.5,pointBackgroundColor:'#3b82f6',yAxisID:'y2'}],
-      {maxRotation:30,yColor:'#f97316',y2Color:'#3b82f6',yLabel:'Good Units',y2Label:'Appointments',
+      [{label:'Good Units',data:months.map(m=>byMonth[m].units),backgroundColor:barFill,hoverBackgroundColor:barHoverFill,borderColor:'#ea580c',borderWidth:1.5,borderRadius:10,borderSkipped:false,maxBarThickness:46,yAxisID:'y'}],
+      [{label:'Appts',data:months.map(m=>byMonth[m].appts),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2.5,tension:0.35,pointBackgroundColor:'#3b82f6',pointBorderColor:'#fff',pointBorderWidth:2,pointRadius:4,pointHoverRadius:6,yAxisID:'y2'}],
+      {maxRotation:30,yColor:'#ea580c',y2Color:'#3b82f6',yLabel:'Good Units',y2Label:'Appointments',
        yTickFmt:v=>v>=1000?Math.round(v/1000)+'k':v,
        y2TickFmt:v=>v>=1000?Math.round(v/1000)+'k':v}
     );
@@ -2550,91 +2563,123 @@ function _renderTrendGradientLine(canvasId, labels, values, meta) {
   });
 }
 
-function renderCXOFCVol(D) {
-  const fcs=['MUM','HYD','GGN','KOL','BNG','CHE'];
-  const apptsByFC = fcs.map(fc=>D.filter(r=>r['FC']===fc).length);
-  const unitsByFC = fcs.map(fc=>D.filter(r=>r['FC']===fc).reduce((a,r)=>a+r._goodUnits,0));
-  const fcVolCanvas = document.getElementById('cxo-fc-vol');
-  if(fcVolCanvas){ fcVolCanvas.style.height='240px'; fcVolCanvas.parentElement.style.height='240px'; }
-  // Custom chart so tooltip can show BOTH appts + units for each FC
-  destroyChart('cxo-fc-vol');
-  const canvas = document.getElementById('cxo-fc-vol');
-  if(!canvas) return;
-  const tc = textColor(), gc = gridColor();
-  const maxLabelLen = fcs.reduce((m,l)=>(l.length>m?l.length:m),0);
-  const leftPad = Math.min(Math.max(maxLabelLen*7.5,100),220);
-  charts['cxo-fc-vol'] = new Chart(canvas.getContext('2d'), {
-    type: 'bar',
-    data: { labels: fcs, datasets: [{ data: unitsByFC, backgroundColor: fcs.map(fc=>FC_COLORS[fc]+'cc'), borderRadius: 5 }] },
-    options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0 } },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: bgCard(), titleColor: tc, bodyColor: tc,
-          borderColor: isDarkMode()?'#252840':'#ccd0e8', borderWidth: 1,
-          callbacks: {
-            title: items => items[0].label,
-            label: item => {
-              const i = item.dataIndex;
-              return [`  ${unitsByFC[i].toLocaleString()} units`, `  ${apptsByFC[i].toLocaleString()} APPTS`];
+function renderCXOClientVol(D) {
+  // ── Inject FC / Clients toggle pills once ──────────────────
+  const card = document.getElementById('cxo-client-vol')?.closest('.cc');
+  if (window._cxoClientVolMode === undefined) window._cxoClientVolMode = 'fc';
+  if (card && !document.getElementById('cxo-clientvol-pills')) {
+    const pillWrap = document.createElement('div');
+    pillWrap.id = 'cxo-clientvol-pills';
+    pillWrap.style.cssText = 'position:absolute;top:10px;right:130px;z-index:10;display:inline-flex;gap:4px;';
+    pillWrap.innerHTML =
+      `<button type="button" data-mode="fc" style="height:26px;padding:0 14px;border-radius:20px;border:1.5px solid #60a5fa;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;font-size:10px;letter-spacing:.01em;transition:all .15s;">FC</button>`
+      + `<button type="button" data-mode="clients" style="height:26px;padding:0 14px;border-radius:20px;border:1.5px solid #60a5fa;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;font-size:10px;letter-spacing:.01em;transition:all .15s;">Clients</button>`;
+    card.appendChild(pillWrap);
+    pillWrap.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        window._cxoClientVolMode = btn.dataset.mode;
+        renderCXOClientVol(FILTERED);
+      };
+    });
+  }
+  // Sync pill active styling
+  const pillWrapEl = document.getElementById('cxo-clientvol-pills');
+  if (pillWrapEl) {
+    pillWrapEl.querySelectorAll('button').forEach(btn => {
+      const active = btn.dataset.mode === window._cxoClientVolMode;
+      btn.style.background = active ? '#2563eb' : '#eff6ff';
+      btn.style.color = active ? '#fff' : '#2563eb';
+      btn.style.borderColor = '#2563eb';
+    });
+  }
+
+  const subEl = document.getElementById('cxo-clientvol-sub');
+  const mode = window._cxoClientVolMode;
+
+  if (mode === 'fc') {
+    const fcs = ['MUM','HYD','GGN','KOL','BNG','CHE'];
+    const apptsByFC = fcs.map(fc=>D.filter(r=>r['FC']===fc).length);
+    const unitsByFC = fcs.map(fc=>D.filter(r=>r['FC']===fc).reduce((a,r)=>a+r._goodUnits,0));
+    if (subEl) subEl.textContent = 'Good Units per Fulfilment Centre';
+    destroyChart('cxo-client-vol');
+    const canvas = document.getElementById('cxo-client-vol');
+    if (!canvas) return;
+    const tc = textColor(), gc = gridColor();
+    const maxLabelLen = fcs.reduce((m,l)=>(l.length>m?l.length:m),0);
+    const leftPad = Math.min(Math.max(maxLabelLen*7.5,100),220);
+    charts['cxo-client-vol'] = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: fcs, datasets: [{ data: unitsByFC, backgroundColor: fcs.map(fc=>FC_COLORS[fc]+'cc'), borderRadius: 5 }] },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: bgCard(), titleColor: tc, bodyColor: tc,
+            borderColor: isDarkMode()?'#252840':'#ccd0e8', borderWidth: 1,
+            callbacks: {
+              title: items => items[0].label,
+              label: item => {
+                const i = item.dataIndex;
+                return [`  ${unitsByFC[i].toLocaleString()} units`, `  ${apptsByFC[i].toLocaleString()} APPTS`];
+              }
             }
           }
+        },
+        scales: {
+          x: { grid:{color:gc}, ticks:{color:tc,font:{size:10},maxRotation:0,callback:v=>v>=1000?Math.round(v/1000)+'k':v}, border:{color:gc} },
+          y: { grid:{display:false}, afterFit(axis){axis.width=leftPad;}, ticks:{color:tc,font:{size:10,weight:'600'}}, border:{color:gc} }
         }
-      },
-      scales: {
-        x: { grid:{color:gc}, ticks:{color:tc,font:{size:10},maxRotation:0,callback:v=>v>=1000?Math.round(v/1000)+'k':v}, border:{color:gc} },
-        y: { grid:{display:false}, afterFit(axis){axis.width=leftPad;}, ticks:{color:tc,font:{size:10,weight:'600'}}, border:{color:gc} }
       }
-    }
-  });
-  addExportBtn('cxo-fc-vol','Volume_by_FC');
-}
-
-function renderCXOClientVol(D) {
-  const byClient = {};
-  D.forEach(r => {
-    const cl = normClient(r['Client']||'?');
-    if (!byClient[cl]) byClient[cl] = {appts:0, units:0};
-    byClient[cl].appts++;
-    byClient[cl].units += (r._goodUnits||0);
-  });
-  const all = Object.entries(byClient).sort((a,b)=>b[1].appts-a[1].appts);
-  const top10 = all.slice(0,10);
-  const labels = top10.map(x=>x[0]);
-  const appts  = top10.map(x=>x[1].appts);
-  const units  = top10.map(x=>x[1].units);
-  destroyChart('cxo-client-vol');
-  const canvas = document.getElementById('cxo-client-vol');
-  if (!canvas) return;
-  const tc=textColor(), gc=gridColor();
-  const leftPad = Math.min(Math.max(...labels.map(l=>l.length))*7.5,220);
-  charts['cxo-client-vol'] = new Chart(canvas.getContext('2d'), {
-    type:'bar',
-    data:{labels,datasets:[{data:appts,backgroundColor:top10.map((_,i)=>CLIENT_COLORS[i%CLIENT_COLORS.length]+'cc'),borderRadius:5}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},
-      layout:{padding:{left:0,bottom:0}},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:bgCard(),titleColor:tc,bodyColor:tc,
-          borderColor:isDarkMode()?'#252840':'#ccd0e8',borderWidth:1,
-          callbacks:{
-            title:items=>items[0].label,
-            label:item=>[`  ${appts[item.dataIndex].toLocaleString()} APPTS`,`  ${units[item.dataIndex].toLocaleString()} units`]
+    });
+    addExportBtn('cxo-client-vol','Volume_by_FC');
+    buildInfoPanel('info-top-clients', fcs.map((fc,i)=>({name:fc,val:unitsByFC[i]})),' units');
+  } else {
+    const byClient = {};
+    D.forEach(r => {
+      const cl = normClient(r['Client']||'?');
+      if (!byClient[cl]) byClient[cl] = {appts:0, units:0};
+      byClient[cl].appts++;
+      byClient[cl].units += (r._goodUnits||0);
+    });
+    const all = Object.entries(byClient).sort((a,b)=>b[1].appts-a[1].appts);
+    const top10 = all.slice(0,10);
+    const labels = top10.map(x=>x[0]);
+    const appts  = top10.map(x=>x[1].appts);
+    const units  = top10.map(x=>x[1].units);
+    if (subEl) subEl.textContent = 'Total Appointments — top 10';
+    destroyChart('cxo-client-vol');
+    const canvas = document.getElementById('cxo-client-vol');
+    if (!canvas) return;
+    const tc=textColor(), gc=gridColor();
+    const leftPad = Math.min(Math.max(...labels.map(l=>l.length))*7.5,220);
+    charts['cxo-client-vol'] = new Chart(canvas.getContext('2d'), {
+      type:'bar',
+      data:{labels,datasets:[{data:appts,backgroundColor:top10.map((_,i)=>CLIENT_COLORS[i%CLIENT_COLORS.length]+'cc'),borderRadius:5}]},
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},
+        layout:{padding:{left:0,bottom:0}},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:bgCard(),titleColor:tc,bodyColor:tc,
+            borderColor:isDarkMode()?'#252840':'#ccd0e8',borderWidth:1,
+            callbacks:{
+              title:items=>items[0].label,
+              label:item=>[`  ${appts[item.dataIndex].toLocaleString()} APPTS`,`  ${units[item.dataIndex].toLocaleString()} units`]
+            }
           }
+        },
+        scales:{
+          x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxRotation:0,callback:v=>v},border:{color:gc},title:{display:true,text:'Appointments',color:tc,font:{size:10}}},
+          y:{grid:{display:false},afterFit(axis){axis.width=leftPad;},ticks:{color:tc,font:{size:10,weight:'600'}},border:{color:gc}}
         }
-      },
-      scales:{
-        x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxRotation:0,callback:v=>v},border:{color:gc},title:{display:true,text:'Appointments',color:tc,font:{size:10}}},
-        y:{grid:{display:false},afterFit(axis){axis.width=leftPad;},ticks:{color:tc,font:{size:10,weight:'600'}},border:{color:gc}}
       }
-    }
-  });
-  addExportBtn('cxo-client-vol','Top_Clients_Volume');
-  buildInfoPanel('info-top-clients',all.map(x=>({name:x[0],val:x[1].appts})),' appts');
+    });
+    addExportBtn('cxo-client-vol','Top_Clients_Volume');
+    buildInfoPanel('info-top-clients',all.map(x=>({name:x[0],val:x[1].appts})),' appts');
+  }
 }
 
 function renderCXODiscipline(D) {
@@ -4266,8 +4311,8 @@ function renderComboChartCJS(canvasId, labels, barDatasets, lineDatasets, opts={
   const yColor  = opts.yColor  || tc;
   const y2Color = opts.y2Color || '#f97316';
   const allDs = [
-    ...barDatasets.map(ds => ({ type: 'bar', ...ds, borderRadius: 4 })),
-    ...lineDatasets.map(ds => ({ type: 'line', ...ds, tension: 0.4, pointRadius: 4, pointHoverRadius: 6, fill: false }))
+    ...barDatasets.map(ds => ({ type: 'bar', borderRadius: 4, ...ds })),
+    ...lineDatasets.map(ds => ({ type: 'line', tension: 0.4, pointRadius: 4, pointHoverRadius: 6, fill: false, ...ds }))
   ];
   charts[canvasId] = new Chart(ctx, {
     type: 'bar',
