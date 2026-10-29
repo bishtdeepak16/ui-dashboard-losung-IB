@@ -54,6 +54,7 @@ body{font-family:'Inter',sans-serif;background:#F8F9FC;color:#111827;min-height:
   overflow-y:auto;
   overflow-x:hidden;
   transition:transform var(--tr);
+  zoom:0.9; /* matches .page-content's 90% density — safe, no canvas inside */
 }
 [data-theme="dark"] .sidebar{background:#13151F;border-right-color:#252840;}
 
@@ -114,7 +115,7 @@ body{font-family:'Inter',sans-serif;background:#F8F9FC;color:#111827;min-height:
 
 /* ══ MAIN AREA ══ */
 .main-area{
-  margin-left:var(--sidebar-w);
+  margin-left:calc(var(--sidebar-w) * 0.9); /* sidebar renders at 90% (zoom) — match its visual width, no gap */
   flex:1;
   display:flex;
   flex-direction:column;
@@ -130,6 +131,7 @@ body{font-family:'Inter',sans-serif;background:#F8F9FC;color:#111827;min-height:
   padding:0 24px;gap:16px;
   position:sticky;top:0;z-index:100;
   box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  zoom:0.9; /* matches .page-content's 90% density — safe, no canvas inside */
 }
 [data-theme="dark"] .top-header{background:#13151F;border-bottom-color:#252840;}
 .page-title{font-size:20px;font-weight:700;color:var(--text1);letter-spacing:-0.02em;white-space:nowrap;flex-shrink:0;}
@@ -2608,7 +2610,7 @@ function renderCXOClientVol(D) {
       data: { labels: fcs, datasets: [{ data: unitsByFC, backgroundColor: fcs.map(fc=>FC_COLORS[fc]+'cc'), borderRadius: 5 }] },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0 } },
+        animation: { duration: 400 }, layout: { padding: { left: 0, bottom: 0, top: 33 } },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -2655,7 +2657,7 @@ function renderCXOClientVol(D) {
       data:{labels,datasets:[{data:appts,backgroundColor:top10.map((_,i)=>CLIENT_COLORS[i%CLIENT_COLORS.length]+'cc'),borderRadius:5}]},
       options:{
         indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},
-        layout:{padding:{left:0,bottom:0}},
+        layout:{padding:{left:0,bottom:0,top:33}},
         plugins:{
           legend:{display:false},
           tooltip:{
