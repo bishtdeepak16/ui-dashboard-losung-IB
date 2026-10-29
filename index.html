@@ -193,7 +193,7 @@ body{font-family:'Inter',sans-serif;background:#F8F9FC;color:#111827;min-height:
 .theme-btn:hover:not(.active){color:var(--orange);}
 
 /* ══ PAGE CONTENT ══ */
-.page-content{padding:24px;flex:1;}
+.page-content{padding:24px;flex:1;transform:scale(0.9);transform-origin:top left;width:111.112%;}
 
 /* ══ SLICER & FILTERS ══ */
 .slicer-bar{
@@ -966,7 +966,7 @@ select:hover,select:focus{border-color:var(--orange);}
       <div class="cc orange" style="margin-bottom:var(--gap);"><div class="cc-row"><div><div class="cc-title">📈 Monthly Volume Trend</div><div class="cc-sub">Good Units (bars) + Appointments (line)</div></div></div><div class="rh-lg"><canvas id="cxo-trend"></canvas></div></div>
       <div class="two-col">
         <div class="cc blue"><div class="cc-row"><div><div class="cc-title">👥 Top FC &amp; Clients by Volume (Good Units)</div><div class="cc-sub" id="cxo-clientvol-sub">Total Appointments — top 10</div><div id="cxo-clientvol-pills" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;"></div></div><div class="cc-info-btn" id="info-top-clients" title="All Clients Info">ℹ</div></div><div class="rh-lg"><canvas id="cxo-client-vol"></canvas></div></div>
-        <div class="cc red"><div class="cc-row"><div><div class="cc-title">🎯 Appt Classification by Client</div><div class="cc-info-btn" id="info-appt-class-client" title="All Clients Info">ℹ</div><div class="cc-sub">Advance · Immediate · Null · Imm+Null % — Top 5 by volume</div></div></div><div class="rh"><canvas id="cxo-discipline-fc"></canvas></div></div>
+        <div class="cc red"><div class="cc-row"><div><div class="cc-title">🎯 Appt Classification by Client</div><div class="cc-info-btn" id="info-appt-class-client" title="All Clients Info">ℹ</div><div class="cc-sub">Advance · Immediate · Null · Imm+Null % — Top 5 by volume</div><div style="margin-top:6px;height:22px;" aria-hidden="true"></div></div></div><div class="rh-lg"><canvas id="cxo-discipline-fc"></canvas></div></div>
       </div>
       <div class="two-col">
         <div class="cc purple"><div class="cc-row"><div><div class="cc-title">📉 Damage + Shortage Rate by Client</div><div class="cc-sub">Top 7 · % of total units (damaged+short / units)</div><div class="cc-info-btn" id="info-ds-client" title="All Clients Info">ℹ</div></div></div><div class="rh-sm"><canvas id="cxo-ds-fc"></canvas></div></div>
@@ -4969,6 +4969,29 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.target === el) hideSignInLoading();
   });
 });
+
+// ── Visual density scale (90% look) without breaking Chart.js hover ──
+// .page-content is scaled via CSS transform (not CSS zoom — zoom breaks
+// Chart.js canvas hit-testing). transform:scale() doesn't shrink the
+// element's reserved layout height, so we compensate with a negative
+// bottom margin computed from its real (unscaled) height, kept in sync
+// via ResizeObserver as filters/pages/charts change the content height.
+(function(){
+  const SCALE = 0.9;
+  function compensate(){
+    const pc = document.querySelector('.page-content');
+    if (!pc) return;
+    pc.style.marginBottom = (-(pc.scrollHeight * (1 - SCALE))) + 'px';
+  }
+  const pc = document.querySelector('.page-content');
+  if (pc && 'ResizeObserver' in window) {
+    new ResizeObserver(compensate).observe(pc);
+  }
+  window.addEventListener('load', compensate);
+  window.addEventListener('resize', compensate);
+  setTimeout(compensate, 300);
+  setTimeout(compensate, 1500);
+})();
 </script>
 
 <!-- ═══ AI REPORT MODAL ═══ -->
