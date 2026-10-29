@@ -965,7 +965,7 @@ select:hover,select:focus{border-color:var(--orange);}
       <div class="cc orange" style="margin-bottom:var(--gap);"><div class="cc-row"><div><div class="cc-title">📈 Monthly Volume Trend</div><div class="cc-sub">Good Units (bars) + Appointments (line)</div></div></div><div class="rh-lg"><canvas id="cxo-trend"></canvas></div></div>
       <div class="two-col">
         <div class="cc blue"><div class="cc-row"><div><div class="cc-title">👥 Top FC &amp; Clients by Volume (Good Units)</div><div class="cc-sub" id="cxo-clientvol-sub">Total Appointments — top 10</div><div id="cxo-clientvol-pills" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;"></div></div><div class="cc-info-btn" id="info-top-clients" title="All Clients Info">ℹ</div></div><div class="rh-lg"><canvas id="cxo-client-vol"></canvas></div></div>
-        <div class="cc red"><div class="cc-row"><div><div class="cc-title">🎯 Appt Classification by Client</div><div class="cc-info-btn" id="info-appt-class-client" title="All Clients Info">ℹ</div><div class="cc-sub">Advance · Immediate · Null · Imm+Null % — Top 5 by volume</div><div style="margin-top:6px;height:22px;" aria-hidden="true"></div></div></div><div class="rh-lg"><canvas id="cxo-discipline-fc"></canvas></div></div>
+        <div class="cc red"><div class="cc-row"><div><div class="cc-title">🎯 Appt Classification by Client</div><div class="cc-info-btn" id="info-appt-class-client" title="All Clients Info">ℹ</div><div class="cc-sub">Advance · Immediate · Null · Imm+Null % — Top 5 by volume</div><div id="cxo-discipline-legend" style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;height:16px;"></div></div></div><div class="rh-lg"><canvas id="cxo-discipline-fc"></canvas></div></div>
       </div>
       <div class="two-col">
         <div class="cc purple"><div class="cc-row"><div><div class="cc-title">📉 Damage + Shortage Rate by Client</div><div class="cc-sub">Top 7 · % of total units (damaged+short / units)</div><div class="cc-info-btn" id="info-ds-client" title="All Clients Info">ℹ</div></div></div><div class="rh-sm"><canvas id="cxo-ds-fc"></canvas></div></div>
@@ -2690,15 +2690,24 @@ function renderCXODiscipline(D) {
   const top5 = allClients.slice(0,5).map(x=>x[0]);
   const totals = top5.map(cl => clientCounts[cl]?.total || 0);
   const classes=['Advance','Immediate','Null','Immediate and Null'];
+  const classBg={Advance:'rgba(20,184,166,.8)',Immediate:'rgba(249,115,22,.8)',Null:'rgba(239,68,68,.8)','Immediate and Null':'rgba(167,139,250,.8)'};
   const datasets=classes.map(cls=>{
-    const bg={Advance:'rgba(20,184,166,.8)',Immediate:'rgba(249,115,22,.8)',Null:'rgba(239,68,68,.8)','Immediate and Null':'rgba(167,139,250,.8)'};
-    return {label:cls,backgroundColor:bg[cls],data:top5.map(cl=>{
+    return {label:cls,backgroundColor:classBg[cls],data:top5.map(cl=>{
       const entry=clientCounts[cl];
       if(!entry) return 0;
       const cnt=entry.classes[cls]||0;
       return entry.total?+(cnt/entry.total*100).toFixed(1):0;
     })};
   });
+  // Static HTML legend in the card header (frees the canvas's own top padding
+  // so bars start right under the header, same as the neighbouring FC chart)
+  const legendEl = document.getElementById('cxo-discipline-legend');
+  if (legendEl) {
+    legendEl.innerHTML = classes.map(cls =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:${textColor()};font-weight:500;">`
+      + `<span style="width:9px;height:9px;border-radius:3px;background:${classBg[cls]};display:inline-block;"></span>${cls}</span>`
+    ).join('');
+  }
   // Render using renderBarChart for vertical bars with horizontal straight labels
   destroyChart('cxo-discipline-fc');
   const canvas=document.getElementById('cxo-discipline-fc');
@@ -2709,8 +2718,9 @@ function renderCXODiscipline(D) {
     data:{labels:top5,datasets:datasets.map(ds=>({...ds,borderRadius:0,borderSkipped:false}))},
     options:{
       responsive:true,maintainAspectRatio:false,animation:{duration:400},
+      layout:{padding:{top:0,bottom:0,left:0,right:0}},
       plugins:{
-        legend:{display:true,position:'top',labels:{color:tc,font:{size:11},padding:12,boxWidth:12}},
+        legend:{display:false},
         tooltip:{backgroundColor:bgCard(),titleColor:tc,bodyColor:tc,borderColor:gc,borderWidth:1,padding:10,
           callbacks:{
             title:items=>{
